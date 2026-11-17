@@ -24,8 +24,8 @@ Couch only reads from Simkl; it never changes your Simkl library.
 2. **Candidates** (no LLM). TMDB recommendations for your best-rated shows,
    well-rated shows on your streaming services, and this week's trending. Anything
    in your library or rejected before is dropped, then ~60 are kept.
-3. **The pick** (strong model). One call gets the profile and the candidates and
-   returns 8 picks with reasons. A run costs a few cents and only happens when you
+3. **The pick** (default `openai/gpt-5.6-luna`, override with `OPENROUTER_PICK_MODEL` or `--model`). One call gets the profile and the candidates and
+   returns 8 picks with reasons. A run costs well under a cent and only happens when you
    click **New picks** (or run `picks --new`).
 
 ## Setup

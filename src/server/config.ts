@@ -35,9 +35,14 @@ export const config = {
 	services: list("STREAMING_SERVICES").map((s) => s.toLowerCase()),
 
 	openRouterApiKey: env("OPENROUTER_API_KEY"),
-	/** Strong model for the final pick; runs rarely, so quality over cost. */
-	pickModel: env("OPENROUTER_PICK_MODEL") ?? "anthropic/claude-sonnet-5.5",
-	/** Cheaper model for summarising history into a taste profile. */
+	/**
+	 * Model that chooses picks. Default is a cheap, capable model (about $0.003
+	 * a run); point it at something stronger to compare, e.g.
+	 * anthropic/claude-sonnet-5.5 (~10x the cost). `picks --model` overrides it
+	 * for one run.
+	 */
+	pickModel: env("OPENROUTER_PICK_MODEL") ?? "openai/gpt-5.6-luna",
+	/** Model that summarises history into the taste profile; the cheapest that does it well. */
 	profileModel: env("OPENROUTER_PROFILE_MODEL") ?? "anthropic/claude-haiku-5.5",
 
 	/** Days without an episode before a "watching" show counts as stalled. */

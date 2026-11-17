@@ -28,6 +28,7 @@ const USAGE = `Couch: what to watch next
   picks [--movies] Show the latest TV (or film) picks
         --new      Generate new picks (one OpenRouter call)
         --dry-run  Print exactly what would be sent to the model; no call
+        --model X  Use OpenRouter model X for this run (compare models)
   status           What is configured and synced`;
 
 async function main(): Promise<void> {
@@ -129,8 +130,10 @@ async function main(): Promise<void> {
 
 		case "picks": {
 			const kind = flag("--movies") ? "movie" : "tv";
+			const modelAt = rest.indexOf("--model");
+			const model = modelAt >= 0 ? rest[modelAt + 1] : undefined;
 			if (flag("--dry-run")) {
-				const d = await dryRunPicks(kind);
+				const d = await dryRunPicks(kind, model);
 				for (const m of d.messages)
 					console.log(`===== ${m.role} =====\n${m.content}\n`);
 				console.log(
@@ -144,7 +147,7 @@ async function main(): Promise<void> {
 			}
 			if (flag("--new")) {
 				console.log("Choosing picks (this takes a minute)...");
-				const r = await runPicks(kind);
+				const r = await runPicks(kind, model);
 				console.log(
 					`Done: ${r.candidates} candidates considered${r.costUsd != null ? `, $${r.costUsd.toFixed(3)}` : ""}.`,
 				);

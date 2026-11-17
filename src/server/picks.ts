@@ -270,7 +270,10 @@ export interface DryRun {
 }
 
 /** Everything a pick run would send, without calling any model. */
-export async function dryRunPicks(kind: MediaKind): Promise<DryRun> {
+export async function dryRunPicks(
+	kind: MediaKind,
+	model = config.pickModel,
+): Promise<DryRun> {
 	const profile = getProfile();
 	const profileText =
 		profile?.text ??
@@ -279,7 +282,7 @@ export async function dryRunPicks(kind: MediaKind): Promise<DryRun> {
 	const chars = messages.reduce((n, m) => n + m.content.length, 0);
 	return {
 		kind,
-		model: config.pickModel,
+		model,
 		candidates: pool.length,
 		profileStale: profileIsStale(),
 		messages,
@@ -293,10 +296,13 @@ export interface PickRun {
 	costUsd: number | null;
 }
 
-export async function runPicks(kind: MediaKind = "tv"): Promise<PickRun> {
+export async function runPicks(
+	kind: MediaKind = "tv",
+	model = config.pickModel,
+): Promise<PickRun> {
 	const { profile } = await buildProfile();
 	const { pool, messages } = await prepare(kind, profile.text);
-	const result = await chat(config.pickModel, messages, {
+	const result = await chat(model, messages, {
 		json: true,
 		maxTokens: 2500,
 	});
