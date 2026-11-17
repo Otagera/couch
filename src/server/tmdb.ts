@@ -292,3 +292,31 @@ export async function myProviderIds(kind: MediaKind): Promise<number[]> {
 export function onMyServices(providers: string[]): boolean {
 	return providers.some((p) => config.services.includes(p.toLowerCase()));
 }
+
+/** Match a show name (from a file path) to a TMDB TV id. */
+export async function findShowId(
+	title: string,
+	year: number | null,
+): Promise<number | null> {
+	const norm = (s: string) =>
+		s
+			.normalize("NFKD")
+			.replace(/[\u0300-\u036f]/g, "")
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, "");
+	const attempts: Record<string, string | number>[] = year
+		? [{ query: title, first_air_date_year: year }, { query: title }]
+		: [{ query: title }];
+	for (const params of attempts) {
+		const res = await tmdb<{
+			results: { id: number; name: string; original_name: string }[];
+		}>("/search/tv", params);
+		if (!res.results.length) continue;
+		const exact = res.results.find(
+			(r) =>
+				norm(r.name) === norm(title) || norm(r.original_name) === norm(title),
+		);
+		return (exact ?? res.results[0]).id;
+	}
+	return null;
+}

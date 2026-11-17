@@ -141,6 +141,7 @@ function ItemRow({
 						<div className="relative">
 							<Poster title={it.title} src={it.poster} progress={it.progress} />
 							<KindTag kind={it.kind} />
+							{it.local && <span className="drive-tag">Drive</span>}
 						</div>
 						<div className="mt-2 truncate text-[14px] font-medium">
 							{it.title}

@@ -9,11 +9,13 @@
  */
 
 import { config } from "./config.ts";
+import { getDb } from "./db/index.ts";
 import { watchlistStreaming } from "./films.ts";
 import { type LibraryShow, upNext } from "./library.ts";
 import { type ListProgress, listProgress } from "./lists.ts";
+import { localMovies, localShows } from "./media/index.ts";
 import { posterUrl } from "./tmdb.ts";
-import { getMovies } from "./tmdbMovies.ts";
+import { cachedMovie, getMovies } from "./tmdbMovies.ts";
 
 export interface HomeItem {
 	kind: "tv" | "film";
@@ -28,6 +30,8 @@ export interface HomeItem {
 	progress?: number;
 	/** For mixing TV and films in one row: most recent activity first. */
 	activeAt: string | null;
+	/** On one of your drives (the next episode, for a show). */
+	local?: boolean;
 }
 
 /** A list counts as "in progress" if you watched something from it recently. */
@@ -96,14 +100,31 @@ export async function getHome() {
 		});
 	}
 
+	const movieDrives = localMovies();
+	const tvLocal = localShows();
+	for (const it of listItems) {
+		const id = Number(it.url.match(/\/movie\/(\d+)/)?.[1]);
+		if (id && movieDrives.has(id)) {
+			it.local = true;
+			it.detail = [it.detail, "on your drive"].filter(Boolean).join(" · ");
+		}
+	}
+
 	const upNextItems = [
-		...tv.continueWatching.map((s) =>
-			showItem(
+		...tv.continueWatching.map((s) => {
+			const nextLocal = Boolean(
+				s.tmdbId &&
+					s.nextToWatch &&
+					tvLocal.get(s.tmdbId)?.episodes.has(s.nextToWatch),
+			);
+			const item = showItem(
 				s,
 				`Next ${s.nextToWatch ?? "episode"}`,
-				`${s.watched}/${s.aired} episodes`,
-			),
-		),
+				`${s.watched}/${s.aired} episodes${nextLocal ? " · on your drive" : ""}`,
+			);
+			item.local = nextLocal;
+			return item;
+		}),
 		...listItems,
 	].sort(byActivity);
 
@@ -135,7 +156,17 @@ export async function getHome() {
 				poster: f.poster,
 				url: f.url,
 				activeAt: null,
+				local: movieDrives.has(f.tmdbId),
 			}),
+		),
+		// Watchlist films you have on a drive but can't stream.
+		...localWatchlist(
+			movieDrives,
+			new Set(
+				[...films.map((f) => f.tmdbId), ...seenFilms].filter(
+					(x): x is number => typeof x === "number",
+				),
+			),
 		),
 	];
 
@@ -152,3 +183,43 @@ export async function getHome() {
 }
 
 export type Home = Awaited<ReturnType<typeof getHome>>;
+
+function localWatchlist(
+	drives: Map<number, string[]>,
+	skip: Set<number>,
+): HomeItem[] {
+	if (!drives.size) return [];
+	const rows = getDb()
+		.prepare(
+			"SELECT name, year, tmdb_id, letterboxd_uri FROM film WHERE watchlist = 1 AND watched = 0 AND tmdb_id IS NOT NULL ORDER BY watchlist_at DESC",
+		)
+		.all() as {
+		name: string;
+		year: number | null;
+		tmdb_id: number;
+		letterboxd_uri: string | null;
+	}[];
+	return rows
+		.filter((r) => drives.has(r.tmdb_id) && !skip.has(r.tmdb_id))
+		.map((r) => {
+			const m = cachedMovie(r.tmdb_id);
+			return {
+				kind: "film" as const,
+				key: `drive-${r.tmdb_id}`,
+				title: r.name,
+				meta: `On ${(drives.get(r.tmdb_id) ?? []).join(", ")}`,
+				detail: [
+					r.year,
+					m?.runtime ? `${m.runtime} min` : null,
+					"On your watchlist",
+				]
+					.filter(Boolean)
+					.join(" · "),
+				poster: posterUrl(m?.poster ?? null),
+				url:
+					r.letterboxd_uri ?? `https://www.themoviedb.org/movie/${r.tmdb_id}`,
+				activeAt: null,
+				local: true,
+			};
+		});
+}

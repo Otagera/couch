@@ -13,6 +13,12 @@ import { closeDb } from "./db/index.ts";
 import { filmStats } from "./films.ts";
 import { libraryStats, upNext } from "./library.ts";
 import { createLogger, flushLogs } from "./log.ts";
+import {
+	forgetDrive,
+	importDrive,
+	listDrives,
+	scanDirectory,
+} from "./media/index.ts";
 import { dryRunPicks, latestPicks, runPicks } from "./picks.ts";
 import { isLoggedIn, login, logout } from "./simkl.ts";
 import { syncAll } from "./sync.ts";
@@ -31,6 +37,11 @@ const USAGE = `Couch: what to watch next
         --dry-run  Print exactly what would be sent to the model; no call
         --model X  Use OpenRouter model X for this run (compare models)
   status           What is configured and synced
+  scan <folder>    Find video files on a drive and mark what you have locally
+        --dry-run  Only show what each file was recognised as; saves nothing
+        --drive N  Name for this drive (default: the folder name)
+        --push URL Send to a deployed Couch (needs COUCH_SCANNER_TOKEN)
+  drives           Scanned drives; "drives forget NAME" removes one
   passkeys         List passkeys; "passkeys reset" removes all passkeys and
                    sessions so the setup code can register a new one`;
 
@@ -181,6 +192,72 @@ async function main(): Promise<void> {
 			return;
 		}
 
+		case "scan": {
+			const folder = rest.find(
+				(a, i) =>
+					!a.startsWith("--") && !["--drive", "--push"].includes(rest[i - 1]),
+			);
+			if (!folder) {
+				console.log(
+					"Usage: npm run cli -- scan /Volumes/MyDrive [--dry-run] [--drive NAME] [--push URL]",
+				);
+				process.exitCode = 1;
+				return;
+			}
+			const opt = (name: string) => {
+				const i = rest.indexOf(name);
+				return i >= 0 ? rest[i + 1] : undefined;
+			};
+			const scan = scanDirectory(folder, opt("--drive"));
+			if (flag("--dry-run")) {
+				printScan(scan);
+				return;
+			}
+			const push = opt("--push");
+			if (push) {
+				const token = process.env.COUCH_SCANNER_TOKEN;
+				if (!token)
+					throw new Error(
+						"Set COUCH_SCANNER_TOKEN (create one on the Passkeys page).",
+					);
+				const res = await fetch(`${push.replace(/\/$/, "")}/api/media/import`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify(scan),
+				});
+				const body = await res.json();
+				if (!res.ok)
+					throw new Error(
+						`Couch refused the import (${res.status}): ${body.error ?? ""}`,
+					);
+				printImport(body);
+				return;
+			}
+			printImport(await importDrive(scan));
+			return;
+		}
+
+		case "drives": {
+			if (rest[0] === "forget" && rest[1]) {
+				forgetDrive(rest[1]);
+				console.log(`Forgot drive "${rest[1]}".`);
+				return;
+			}
+			const drives = listDrives();
+			if (!drives.length)
+				console.log(
+					"No drives scanned yet. Run: npm run cli -- scan /Volumes/MyDrive",
+				);
+			for (const d of drives)
+				console.log(
+					`${d.name.padEnd(24)} ${String(d.files).padStart(6)} files  ${d.unmatched} unmatched  scanned ${d.scannedAt.slice(0, 10)}  ${d.root ?? ""}`,
+				);
+			return;
+		}
+
 		case "passkeys": {
 			if (rest[0] === "reset") {
 				const r = resetAuth();
@@ -225,6 +302,59 @@ async function main(): Promise<void> {
 }
 
 const log = createLogger("cli");
+
+function printScan(scan: ReturnType<typeof scanDirectory>) {
+	const films = new Map<string, number>();
+	const shows = new Map<string, Map<number, Set<number>>>();
+	const unparsed: string[] = [];
+	for (const f of scan.files) {
+		const p = f.parsed;
+		if (!p) unparsed.push(f.path);
+		else if (p.kind === "movie") {
+			const k = `${p.title}${p.year ? ` (${p.year})` : ""}`;
+			films.set(k, (films.get(k) ?? 0) + 1);
+		} else {
+			const k = `${p.show}${p.year ? ` (${p.year})` : ""}`;
+			const seasons = shows.get(k) ?? new Map<number, Set<number>>();
+			const eps = seasons.get(p.season) ?? new Set<number>();
+			for (let e = p.episode; e <= p.episodeEnd; e++) eps.add(e);
+			seasons.set(p.season, eps);
+			shows.set(k, seasons);
+		}
+	}
+	console.log(`Drive "${scan.drive}": ${scan.files.length} video files\n`);
+	console.log(`Films (${films.size})`);
+	for (const [k, n] of [...films].sort())
+		console.log(`  ${k}${n > 1 ? `  [${n} files]` : ""}`);
+	console.log(`\nShows (${shows.size})`);
+	for (const [k, seasons] of [...shows].sort()) {
+		const detail = [...seasons]
+			.sort(([a], [b]) => a - b)
+			.map(([s, eps]) => `S${s}: ${eps.size}`)
+			.join(", ");
+		console.log(`  ${k}  ${detail}`);
+	}
+	if (unparsed.length) {
+		console.log(`\nNot recognised (${unparsed.length})`);
+		for (const p of unparsed.slice(0, 50)) console.log(`  ${p}`);
+		if (unparsed.length > 50)
+			console.log(`  ...and ${unparsed.length - 50} more`);
+	}
+	console.log(
+		"\nNothing was saved (dry run). If names look wrong, tell me the pattern and I'll adjust the parser.",
+	);
+}
+
+function printImport(r: Awaited<ReturnType<typeof importDrive>>) {
+	console.log(
+		`Drive "${r.drive}": ${r.files} files (${r.movies} films, ${r.episodes} episodes across ${r.shows} shows), ${r.unparsed} not recognised.`,
+	);
+	if (r.unmatched.length) {
+		console.log(`Not found on TMDB (${r.unmatched.length}):`);
+		for (const u of r.unmatched.slice(0, 30))
+			console.log(`  [${u.kind}] ${u.title}${u.year ? ` (${u.year})` : ""}`);
+	}
+}
 
 main()
 	.catch((error) => {

@@ -27,6 +27,12 @@ export default defineConfig({
 					),
 				},
 				{
+					route: "/api/media/import",
+					handler: fileURLToPath(
+						new URL("./src/server/media/importHandler.ts", import.meta.url),
+					),
+				},
+				{
 					route: "/auth/**",
 					handler: fileURLToPath(
 						new URL("./src/server/auth/handlers.ts", import.meta.url),

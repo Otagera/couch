@@ -20,6 +20,7 @@ import { filmSeeds, watchedFilmTmdbIds, watchlistTmdbIds } from "./films.ts";
 import { libraryTmdbIds } from "./library.ts";
 import { type ChatMessage, chat, parseJson } from "./llm.ts";
 import { createLogger } from "./log.ts";
+import { localMovies, localShows } from "./media/index.ts";
 import { buildProfile, getProfile, profileIsStale } from "./taste.ts";
 import {
 	discoverOnMyServices,
@@ -55,6 +56,8 @@ export interface Candidate {
 	sources: Set<string>;
 	/** Films only: already on the user's watchlist and streaming for them. */
 	watchlistOnServices?: boolean;
+	/** On one of the user's own drives. */
+	local?: boolean;
 }
 
 function showSeeds(): { tmdbId: number; title: string }[] {
@@ -137,7 +140,38 @@ export async function gatherCandidates(kind: MediaKind): Promise<Candidate[]> {
 			}),
 		);
 	}
+	// Titles on the user's drives that they haven't watched are candidates too.
+	const localIds =
+		kind === "tv" ? [...localShows().keys()] : [...localMovies().keys()];
+	const unseenLocal = localIds.filter((id) => !exclude.has(id));
+	if (unseenLocal.length) {
+		jobs.push(
+			kind === "tv"
+				? getShows(unseenLocal.slice(0, 40)).then((shows) => {
+						for (const d of shows.values())
+							add(
+								{
+									id: d.id,
+									name: d.name,
+									overview: d.overview,
+									firstAirDate: d.firstAirDate,
+									genreIds: [],
+									voteAverage: d.voteAverage,
+									voteCount: d.voteCount,
+									poster: d.poster,
+									originalLanguage: "",
+								},
+								"local",
+							);
+					})
+				: getMovies(unseenLocal.slice(0, 40)).then((movies) => {
+						for (const m of movies.values()) add(movieAsItem(m), "local");
+					}),
+		);
+	}
 	const settled = await Promise.allSettled(jobs);
+	const localSet = new Set(localIds);
+	for (const c of pool.values()) if (localSet.has(c.item.id)) c.local = true;
 	const failed = settled.filter((s) => s.status === "rejected");
 	if (failed.length === settled.length) {
 		throw new Error(
@@ -152,13 +186,16 @@ export function preRank(candidates: Candidate[]): Candidate[] {
 		c.because.size * 2 +
 		(c.sources.has("my-services") ? 1.5 : 0) +
 		(c.watchlistOnServices ? 3 : c.sources.has("watchlist") ? 0.5 : 0) +
+		(c.local ? 2 : 0) +
 		(c.item.voteCount >= 100 ? c.item.voteAverage / 5 : 0);
 	return [...candidates]
 		.sort((a, b) => score(b) - score(a))
 		.slice(0, POOL_SIZE);
 }
 
-function providersText(providers: string[]): string {
+function providersText(providers: string[], local = false): string {
+	if (local)
+		return `ON THEIR OWN DRIVE${providers.length ? ` (also streams on ${providers.join(", ")})` : ""}`;
 	if (onMyServices(providers))
 		return `ON THEIR SERVICES: ${providers.join(", ")}`;
 	return providers.length
@@ -175,7 +212,11 @@ function describeShow(c: Candidate, d: TmdbShow | undefined): string {
 		d ? `${d.seasons} season${d.seasons === 1 ? "" : "s"}, ${d.status}` : null,
 		d?.episodeRuntime ? `${d.episodeRuntime}min eps` : null,
 		`TMDB ${c.item.voteAverage.toFixed(1)} (${c.item.voteCount} votes)`,
-		d ? providersText(d.providers) : null,
+		d
+			? providersText(d.providers, c.local)
+			: c.local
+				? "ON THEIR OWN DRIVE"
+				: null,
 		c.because.size
 			? `similar to their: ${[...c.because].slice(0, 4).join(", ")}`
 			: null,
@@ -196,7 +237,11 @@ function describeMovie(c: Candidate, d: TmdbMovie | undefined): string {
 		d?.directors.length ? `dir. ${d.directors.join(", ")}` : null,
 		d?.runtime ? `${d.runtime}min` : null,
 		`TMDB ${c.item.voteAverage.toFixed(1)} (${c.item.voteCount} votes)`,
-		d ? providersText(d.providers) : null,
+		d
+			? providersText(d.providers, c.local)
+			: c.local
+				? "ON THEIR OWN DRIVE"
+				: null,
 		c.sources.has("watchlist") ? "ON THEIR WATCHLIST" : null,
 		c.because.size
 			? `similar to their: ${[...c.because].slice(0, 4).join(", ")}`
@@ -220,7 +265,7 @@ function systemPrompt(kind: MediaKind): string {
 You get their taste profile and a numbered list of candidate ${noun} they have not watched.
 Choose exactly ${PICK_COUNT} from the list. Only choose ids that appear in the list.
 
-Prefer ${noun} on their streaming services, but up to 2 picks may be elsewhere if they are an
+Prefer ${noun} on their streaming services or their own drive, but up to 2 picks may be elsewhere if they are an
 unusually strong match. Mix safe bets with one or two less obvious choices. Avoid near-duplicates.
 ${extra}
 For each pick write one or two sentences, addressed to the viewer, saying why it suits them,
@@ -382,6 +427,8 @@ export interface Pick {
 	providers: string[];
 	providersLink: string | null;
 	onMyServices: boolean;
+	/** On one of the user's drives. */
+	local: boolean;
 	/** TV: seasons and status. Films: runtime and director. */
 	detail: string | null;
 	tmdbUrl: string;
@@ -413,6 +460,9 @@ export function latestPicks(kind: MediaKind = "tv"): {
 		feedback: number | null;
 	}[];
 	const table = kind === "tv" ? "tmdb_show" : "tmdb_movie";
+	const local = new Set(
+		kind === "tv" ? localShows().keys() : localMovies().keys(),
+	);
 	const cached = db.prepare(`SELECT details FROM ${table} WHERE tmdb_id = ?`);
 	return {
 		kind,
@@ -428,6 +478,7 @@ export function latestPicks(kind: MediaKind = "tv"): {
 				title: r.title,
 				reason: r.reason,
 				feedback: r.feedback,
+				local: local.has(r.tmdb_id),
 				tmdbUrl: `https://www.themoviedb.org/${kind}/${r.tmdb_id}`,
 			};
 			if (kind === "tv") {

@@ -165,4 +165,44 @@ export const migrations: Array<{ name: string; sql: string }> = [
 		);
 		`,
 	},
+	{
+		name: "005_local_media",
+		sql: `
+		-- Drives scanned for video files. A drive keeps its files while it is
+		-- unplugged; rescanning it replaces them.
+		CREATE TABLE media_drive (
+			name       TEXT PRIMARY KEY,
+			root       TEXT,
+			files      INTEGER NOT NULL DEFAULT 0,
+			unmatched  INTEGER NOT NULL DEFAULT 0,
+			scanned_at TEXT NOT NULL
+		);
+
+		CREATE TABLE media_file (
+			drive       TEXT NOT NULL REFERENCES media_drive(name) ON DELETE CASCADE,
+			path        TEXT NOT NULL,
+			kind        TEXT NOT NULL,      -- movie | episode
+			title       TEXT NOT NULL,      -- film title, or show name
+			year        INTEGER,
+			season      INTEGER,
+			episode     INTEGER,
+			episode_end INTEGER,
+			tmdb_id     INTEGER,
+			size        INTEGER,
+			PRIMARY KEY (drive, path)
+		);
+		CREATE INDEX media_file_tmdb ON media_file (kind, tmdb_id);
+
+		-- Parsed title -> TMDB id, so a show with 200 episode files is looked
+		-- up once. year 0 = unknown.
+		CREATE TABLE media_match (
+			kind       TEXT NOT NULL,       -- movie | tv
+			title      TEXT NOT NULL,
+			year       INTEGER NOT NULL DEFAULT 0,
+			tmdb_id    INTEGER,
+			matched_at TEXT NOT NULL,
+			PRIMARY KEY (kind, title, year)
+		);
+		`,
+	},
 ];

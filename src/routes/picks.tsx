@@ -242,6 +242,9 @@ function PickCard({ pick, showKind }: { pick: Pick; showKind: boolean }) {
 					{pick.reason}
 				</p>
 				<div className="mt-3 flex flex-wrap items-center gap-2">
+					{pick.local && (
+						<span className="chip chip-accent">On your drive</span>
+					)}
 					{pick.providers.length ? (
 						pick.providers.map((p) => (
 							<a

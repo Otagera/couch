@@ -242,3 +242,28 @@ export function linkCodeValid(code: string): boolean {
 export function consumeLinkCode(): void {
 	deleteSetting("auth.link_code");
 }
+
+// ------------------------------------------------------------ scanner token
+
+/**
+ * A long-lived token for the media scanner, which runs on whatever machine
+ * the drives are attached to and has no browser session. Only its hash is
+ * kept; making a new one replaces the old.
+ */
+export function createScannerToken(): string {
+	const token = `couch_scan_${randomBytes(24).toString("base64url")}`;
+	setSetting("auth.scanner_token", {
+		hash: sha256(token),
+		createdAt: new Date().toISOString(),
+	});
+	return token;
+}
+
+export function scannerTokenValid(token: string | undefined): boolean {
+	const stored = getSetting<{ hash: string }>("auth.scanner_token");
+	if (!token || !stored) return false;
+	return timingSafeEqual(
+		Buffer.from(sha256(token), "hex"),
+		Buffer.from(stored.hash, "hex"),
+	);
+}

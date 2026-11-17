@@ -196,6 +196,8 @@ function PasskeysPage() {
 				</div>
 			</section>
 
+			<ScannerToken />
+
 			{error && (
 				<p className="text-[13px]" style={{ color: "var(--drawably-error)" }}>
 					{error}
@@ -207,5 +209,43 @@ function PasskeysPage() {
 				then sign in with the setup code again.
 			</p>
 		</div>
+	);
+}
+
+/** Token for `cli scan --push`, run on the machine your drives are attached to. */
+function ScannerToken() {
+	const [token, setToken] = useState<string | null>(null);
+	return (
+		<section className="panel p-4">
+			<h2 className="text-[15px] font-semibold">Local media scanner</h2>
+			<p className="mt-1 mb-3 text-[13px]" style={{ color: "var(--text-2)" }}>
+				On the computer your drives are plugged into, run{" "}
+				<code className="tnum">
+					npm run cli -- scan /Volumes/Drive --push{" "}
+					{typeof window !== "undefined" ? window.location.origin : ""}
+				</code>{" "}
+				with <code className="tnum">COUCH_SCANNER_TOKEN</code> set to this
+				token. Making a new token replaces the old one.
+			</p>
+			{token ? (
+				<div>
+					<code className="tnum block break-all text-[13px]">{token}</code>
+					<div className="mt-1 text-[12px]" style={{ color: "var(--text-3)" }}>
+						Shown once. Copy it now.
+					</div>
+				</div>
+			) : (
+				<DrawablyButton
+					seed={903}
+					onClick={async () =>
+						setToken(
+							(await call<{ token: string }>("/auth/scanner-token")).token,
+						)
+					}
+				>
+					Create scanner token
+				</DrawablyButton>
+			)}
+		</section>
 	);
 }

@@ -14,7 +14,10 @@ explaining each pick in terms of what you have already watched.
 - **Lists:** Letterboxd lists you follow (your own and liked ones from the export,
   plus any list URL you paste), with progress and what's next. Read from the public
   list page at most once a week (Re-read on a list page anytime).
-- **Library:** your Simkl shows by status, with ratings and progress.
+- **Library:** TV and films together, by where you are with them, with ratings,
+  progress and what's on your drives.
+- **Local media:** scan your drives and Couch marks what you have, down to which
+  episodes, and treats it like another streaming service.
 - **Taste:** the written taste profile picks are based on, plus your own notes to
   correct it.
 
@@ -69,6 +72,22 @@ npm run cli -- status
 
 The server also syncs in the background every `COUCH_SYNC_HOURS` (default 6). An
 unchanged library costs one Simkl API call, well inside the free 500 a day.
+
+## Local media
+
+Run the scanner on the computer your drives are plugged into:
+
+```sh
+npm run cli -- scan /Volumes/MyDrive --dry-run   # what each file was recognised as; saves nothing
+npm run cli -- scan /Volumes/MyDrive             # save it (Couch running on this machine)
+npm run cli -- scan /Volumes/MyDrive --push https://couch.otagera.xyz   # send to a deployed Couch
+npm run cli -- drives                            # scanned drives; "drives forget NAME"
+```
+
+`--push` needs `COUCH_SCANNER_TOKEN`, created on the Passkeys page. File names like
+`Movie (2019)/Movie (2019).mkv`, `Show/Season 01/S01E02.mkv` and scene-style
+`Show.S01E02.1080p...mkv` are recognised; samples and extras are skipped. Drives keep
+their files while unplugged; rescanning replaces them.
 
 ## Development
 

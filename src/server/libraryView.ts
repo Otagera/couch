@@ -14,6 +14,7 @@
 
 import { getDb } from "./db/index.ts";
 import { listShows } from "./library.ts";
+import { localMovies, localShows, showCoverage } from "./media/index.ts";
 import { posterUrl } from "./tmdb.ts";
 import { cachedMovie } from "./tmdbMovies.ts";
 
@@ -24,6 +25,7 @@ export const SHELVES = [
 	"finished",
 	"paused",
 	"dropped",
+	"on-drive",
 ] as const;
 export type Shelf = (typeof SHELVES)[number];
 export type KindFilter = "all" | "tv" | "film";
@@ -33,7 +35,9 @@ export interface LibraryItem {
 	key: string;
 	title: string;
 	year: number | null;
-	shelf: Exclude<Shelf, "all">;
+	shelf: Exclude<Shelf, "all" | "on-drive">;
+	/** What's on your drives: "Drive A" for a film, "S1–S3 · 30 eps" for a show. */
+	local: string | null;
 	/** Display rating in the source's own scale: "8/10" or "★★★★½". */
 	rating: string | null;
 	/** Rating on a 0-10 scale, for sorting. */
@@ -59,12 +63,19 @@ export function stars(rating: number): string {
 }
 
 export function libraryItems(): LibraryItem[] {
+	const movies = localMovies();
+	const tvLocal = localShows();
+	const localCoverage = (tmdbId: number | null) => {
+		const ls = tmdbId ? tvLocal.get(tmdbId) : undefined;
+		return ls ? showCoverage(ls) : null;
+	};
 	const shows: LibraryItem[] = listShows().map((s) => ({
 		kind: "tv",
 		key: `tv-${s.simklId}`,
 		title: s.title,
 		year: s.year,
 		shelf: SHOW_SHELF[s.status],
+		local: localCoverage(s.tmdbId),
 		rating: s.rating ? `${s.rating}/10` : null,
 		score: s.rating,
 		poster: s.poster,
@@ -105,6 +116,10 @@ export function libraryItems(): LibraryItem[] {
 			title: f.name,
 			year: f.year,
 			shelf: f.watched ? "finished" : "want",
+			local:
+				f.tmdb_id && movies.has(f.tmdb_id)
+					? (movies.get(f.tmdb_id) ?? []).join(", ")
+					: null,
 			rating: f.rating
 				? stars(f.rating) + (f.liked ? " ♥" : "")
 				: f.liked
@@ -131,11 +146,20 @@ export function libraryView(shelf: Shelf, kind: KindFilter) {
 	const counts = Object.fromEntries(
 		SHELVES.map((s) => [
 			s,
-			s === "all" ? ofKind.length : ofKind.filter((i) => i.shelf === s).length,
+			s === "all"
+				? ofKind.length
+				: s === "on-drive"
+					? ofKind.filter((i) => i.local).length
+					: ofKind.filter((i) => i.shelf === s).length,
 		]),
 	) as Record<Shelf, number>;
 	return {
-		items: shelf === "all" ? ofKind : ofKind.filter((i) => i.shelf === shelf),
+		items:
+			shelf === "all"
+				? ofKind
+				: shelf === "on-drive"
+					? ofKind.filter((i) => i.local)
+					: ofKind.filter((i) => i.shelf === shelf),
 		counts,
 	};
 }

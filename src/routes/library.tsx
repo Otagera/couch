@@ -10,6 +10,7 @@ const SHELVES = [
 	["finished", "Finished"],
 	["paused", "Paused"],
 	["dropped", "Dropped"],
+	["on-drive", "On my drives"],
 ] as const;
 type Shelf = (typeof SHELVES)[number][0];
 
@@ -159,6 +160,14 @@ function LibraryPage() {
 									progress={i.progress}
 									dim={i.shelf === "dropped"}
 								/>
+								{i.local && (
+									<span
+										className="drive-tag"
+										title={`On your drive: ${i.local}`}
+									>
+										Drive
+									</span>
+								)}
 								{kind === "all" && (
 									<span className={`kind-tag kind-${i.kind}`}>
 										{i.kind === "tv" ? "TV" : "Film"}
@@ -172,7 +181,11 @@ function LibraryPage() {
 								className="tnum flex justify-between gap-2 text-[11px]"
 								style={{ color: "var(--text-3)" }}
 							>
-								<span className="truncate">{i.note ?? i.year}</span>
+								<span className="truncate">
+									{shelf === "on-drive" && i.local
+										? i.local
+										: (i.note ?? i.year)}
+								</span>
 								{i.rating && (
 									<span
 										className="shrink-0"

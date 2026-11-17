@@ -34,6 +34,7 @@ import {
 	clearedCookie,
 	consumeLinkCode,
 	createLinkCode,
+	createScannerToken,
 	createSession,
 	endSession,
 	getPasskey,
@@ -355,6 +356,11 @@ export default defineEventHandler(async (event) => {
 		if (b.id) removePasskey(b.id);
 		log.info("AUTH_PASSKEY_REMOVED");
 		return json({ ok: true });
+	}
+
+	if (path === "/auth/scanner-token" && method === "POST") {
+		log.info("AUTH_SCANNER_TOKEN_CREATED");
+		return json({ token: createScannerToken() });
 	}
 
 	if (path === "/auth/link-code" && method === "POST") {
