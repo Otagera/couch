@@ -1,22 +1,16 @@
-# Dependencies
-/node_modules
-
-# Build output (We are tracking this for NPX support)
-#/dist
-
-# Environment variables
+node_modules
+.DS_Store
 .env
+.data
+.output
+.nitro
+.tanstack
+.vinxi
+dist
 
-# Ignore all personal data and local databases
+# Personal data: Letterboxd exports and old local databases
 /data/
 *.sqlite
 *.csv
-
-# OS generated files
-**/.DS_Store
-
-# AI related files
-GEMINI.md
 .cache
-
-/dist/*.map
+GEMINI.md
