@@ -107,7 +107,7 @@ export const migrations: Array<{ name: string; sql: string }> = [
 		sql: `
 		-- Letterboxd lists the user follows: their own, ones they liked (from
 		-- the export), and ones pasted into Couch. Read from the public list
-		-- page, at most once a day.
+		-- page, at most once a week (COUCH_LIST_REFRESH_DAYS).
 		CREATE TABLE list (
 			id         INTEGER PRIMARY KEY AUTOINCREMENT,
 			url        TEXT NOT NULL UNIQUE,
@@ -137,6 +137,31 @@ export const migrations: Array<{ name: string; sql: string }> = [
 			slug       TEXT PRIMARY KEY,
 			tmdb_id    INTEGER,
 			matched_at TEXT NOT NULL
+		);
+		`,
+	},
+	{
+		name: "004_passkeys",
+		sql: `
+		-- WebAuthn credentials. Couch has one user, so no user table.
+		CREATE TABLE passkey (
+			id           TEXT PRIMARY KEY,    -- credential id, base64url
+			public_key   BLOB NOT NULL,
+			counter      INTEGER NOT NULL DEFAULT 0,
+			transports   TEXT,                -- JSON array
+			name         TEXT NOT NULL,
+			backed_up    INTEGER NOT NULL DEFAULT 0,
+			created_at   TEXT NOT NULL,
+			last_used_at TEXT
+		);
+
+		-- Signed-in browsers. Only a hash of the cookie token is stored.
+		CREATE TABLE session (
+			token_hash   TEXT PRIMARY KEY,
+			created_at   TEXT NOT NULL,
+			expires_at   TEXT NOT NULL,
+			last_seen_at TEXT NOT NULL,
+			user_agent   TEXT
 		);
 		`,
 	},

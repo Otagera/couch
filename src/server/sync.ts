@@ -5,7 +5,7 @@
  *   TV:    Simkl library, then TMDB details for shows "up next" reasons about.
  *   Films: Letterboxd CSV export (when the files changed), the diary RSS
  *          feed, TMDB ids for new films, then providers for the watchlist.
- *   Lists: followed Letterboxd lists, each re-read at most once a day.
+ *   Lists: followed Letterboxd lists, each re-read at most once a week.
  */
 
 import { config } from "./config.ts";

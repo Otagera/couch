@@ -9,6 +9,10 @@ export default defineConfig({
 	resolve: { tsconfigPaths: true },
 	plugins: [
 		nitro({
+			// Loaded from node_modules at runtime, not bundled: its X.509
+			// dependency needs reflect-metadata to load first, and bundling into
+			// shared chunks breaks that order.
+			traceDeps: ["@simplewebauthn/server", "reflect-metadata"],
 			plugins: [
 				fileURLToPath(new URL("./src/server/scheduler.ts", import.meta.url)),
 			],
@@ -20,6 +24,12 @@ export default defineConfig({
 					route: "/**",
 					handler: fileURLToPath(
 						new URL("./src/server/authHandler.ts", import.meta.url),
+					),
+				},
+				{
+					route: "/auth/**",
+					handler: fileURLToPath(
+						new URL("./src/server/auth/handlers.ts", import.meta.url),
 					),
 				},
 			],

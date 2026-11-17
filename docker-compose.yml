@@ -28,11 +28,13 @@ services:
       - CHATTERBOX_APP_NAME=${CHATTERBOX_APP_NAME}
       - CHATTERBOX_API_SECRET=${CHATTERBOX_API_SECRET}
       - COUCH_SYNC_HOURS=${COUCH_SYNC_HOURS:-6}
-      # Basic auth is enforced by the app (Coolify does not interpolate
-      # labels, so it cannot live in a Traefik middleware). Required here:
-      # without both, the site would be open to the internet.
-      - COUCH_AUTH_USER=${COUCH_AUTH_USER}
-      - COUCH_AUTH_PASSWORD=${COUCH_AUTH_PASSWORD}
+      # Passkey sign-in. The setup code only registers the first passkey (or
+      # one after `cli passkeys reset`); after that sign-in is passkey-only.
+      # Required here: without it the site would be open to the internet.
+      - COUCH_SETUP_CODE=${COUCH_SETUP_CODE}
+      # Passkeys are bound to this origin; it must match the public URL.
+      - COUCH_ORIGIN=${COUCH_ORIGIN:-https://couch.otagera.xyz}
+      - COUCH_LIST_REFRESH_DAYS=${COUCH_LIST_REFRESH_DAYS:-7}
     volumes:
       # SQLite database and the Letterboxd export (put the CSVs in letterboxd/).
       - /mnt/HC_Volume_106816620/couch:/data

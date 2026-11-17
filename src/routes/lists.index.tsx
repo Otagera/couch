@@ -55,7 +55,8 @@ function ListsPage() {
 				>
 					Letterboxd lists you follow: your own and the ones you liked (from
 					your export), plus any you add here. Couch shows how far through each
-					you are and what's next. Lists are re-read once a day.
+					you are and what's next. Lists are re-read weekly; use Re-read on a
+					list for changes sooner.
 				</p>
 				<form onSubmit={add} className="mt-4 flex flex-wrap gap-2">
 					<input

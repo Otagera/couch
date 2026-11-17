@@ -1,74 +1,61 @@
 /**
- * HTTP Basic auth, enforced in the app rather than at the proxy.
+ * Sign-in gate, run ahead of every route (pages, server functions, assets).
  *
- * The brief allowed either "basic-auth at Traefik, or env-gated". Traefik was
- * the first choice, but Coolify does not interpolate variables inside `labels:`
- * or `volumes:` -- only inside `environment:` -- so the middleware's htpasswd
- * line reached Traefik as the literal string `${SIDECAR_BASICAUTH}`. The only
- * way to keep it in Traefik would be hard-coding the password hash into a
- * public repository, which is not acceptable. Environment variables do
- * interpolate, so the check lives here.
+ * Passkey sessions replace the comics-style basic auth: a valid session
+ * cookie passes; otherwise pages redirect to /login and everything else gets
+ * a 401. /login, /auth/* (the passkey ceremony) and static build assets are
+ * always reachable.
  *
- * Registered as a Nitro middleware (see vite.config.ts), so it runs ahead of
- * every route -- pages and server functions alike.
- *
- * Env-gated by design: with COUCH_AUTH_USER / COUCH_AUTH_PASSWORD unset the app is
- * open, which is what a local `npm run dev` wants. Anything reachable from the
- * internet must set them.
+ * Env-gated like comics: with no COUCH_SETUP_CODE the app is open, which is
+ * what a local `npm run dev` wants. Anything reachable from the internet
+ * must set it.
  */
 
-import { timingSafeEqual } from "node:crypto";
 import { defineEventHandler } from "h3";
+import {
+	authEnabled,
+	readCookie,
+	SESSION_COOKIE,
+	validSession,
+} from "./auth/store.ts";
 
-const REALM = "Couch";
+const OPEN_PREFIXES = ["/auth/", "/assets/"];
+const OPEN_PATHS = new Set(["/login", "/favicon.ico", "/robots.txt"]);
+// Vite's dev server serves modules from these; they never exist in production.
+const DEV_PREFIXES = ["/@", "/src/", "/node_modules/", "/__"];
 
-function challenge(): Response {
-	return new Response("Authentication required", {
+export default defineEventHandler((event) => {
+	if (!authEnabled()) return;
+	const req = event.req as Request;
+	const url = new URL(req.url);
+	const path = url.pathname;
+
+	if (OPEN_PATHS.has(path) || OPEN_PREFIXES.some((p) => path.startsWith(p)))
+		return;
+	if (
+		process.env.NODE_ENV !== "production" &&
+		DEV_PREFIXES.some((p) => path.startsWith(p))
+	)
+		return;
+	if (validSession(readCookie(req.headers.get("cookie"), SESSION_COOKIE)))
+		return;
+
+	const wantsPage =
+		req.method === "GET" &&
+		(req.headers.get("accept") ?? "").includes("text/html");
+	if (wantsPage) {
+		const next =
+			path === "/" ? "" : `?next=${encodeURIComponent(path + url.search)}`;
+		return new Response(null, {
+			status: 302,
+			headers: { Location: `/login${next}`, "Cache-Control": "no-store" },
+		});
+	}
+	return new Response(JSON.stringify({ error: "Sign in required" }), {
 		status: 401,
 		headers: {
-			"WWW-Authenticate": `Basic realm="${REALM}", charset="UTF-8"`,
+			"Content-Type": "application/json",
 			"Cache-Control": "no-store",
 		},
 	});
-}
-
-/** Constant-time string compare that does not leak length through timing. */
-function safeEqual(a: string, b: string): boolean {
-	const ab = Buffer.from(a, "utf8");
-	const bb = Buffer.from(b, "utf8");
-	// timingSafeEqual throws on length mismatch, and the throw itself is a
-	// timing signal. Compare fixed-width digests instead.
-	if (ab.length !== bb.length) {
-		// Still burn a comparison so a wrong-length guess costs the same.
-		timingSafeEqual(ab, ab);
-		return false;
-	}
-	return timingSafeEqual(ab, bb);
-}
-
-export default defineEventHandler((event) => {
-	const user = process.env.COUCH_AUTH_USER;
-	const password = process.env.COUCH_AUTH_PASSWORD;
-	if (!user || !password) return; // env-gated: not configured, not enforced
-
-	const header = event.req.headers.get("authorization") ?? "";
-	if (!header.toLowerCase().startsWith("basic ")) return challenge();
-
-	let decoded: string;
-	try {
-		decoded = Buffer.from(header.slice(6).trim(), "base64").toString("utf8");
-	} catch {
-		return challenge();
-	}
-
-	// Only the first colon separates them; a password may contain colons.
-	const sep = decoded.indexOf(":");
-	if (sep < 0) return challenge();
-
-	const okUser = safeEqual(decoded.slice(0, sep), user);
-	const okPass = safeEqual(decoded.slice(sep + 1), password);
-	// Evaluate both before branching so a valid username is not detectable.
-	if (!(okUser && okPass)) return challenge();
-
-	return; // authenticated; fall through to the real route
 });

@@ -36,7 +36,10 @@ export const Route = createRootRoute({
 			{ rel: "stylesheet", href: appCss },
 		],
 	}),
-	loader: () => getStatus(),
+	// The sign-in page renders before there is a session, so it must not
+	// load (or leak) any library data.
+	loader: ({ location }) =>
+		location.pathname === "/login" ? null : getStatus(),
 	shellComponent: RootDocument,
 	component: Layout,
 });
@@ -67,6 +70,13 @@ const NAV = [
 
 function Layout() {
 	const status = Route.useLoaderData();
+	if (!status) {
+		return (
+			<div className="px-4">
+				<Outlet />
+			</div>
+		);
+	}
 	return (
 		<div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
 			<header className="flex flex-wrap items-center gap-x-6 gap-y-3 py-5">
@@ -120,6 +130,14 @@ function Layout() {
 				</a>
 				. This product uses the TMDB API but is not endorsed or certified by
 				TMDB.
+				{status.authEnabled && (
+					<>
+						{" · "}
+						<Link to="/passkeys" className="underline">
+							Passkeys &amp; sign out
+						</Link>
+					</>
+				)}
 			</footer>
 		</div>
 	);

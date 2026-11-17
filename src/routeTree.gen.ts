@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LibraryRouteImport } from './routes/library'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PasskeysRouteImport } from './routes/passkeys'
 import { Route as PicksRouteImport } from './routes/picks'
 import { Route as TasteRouteImport } from './routes/taste'
 import { Route as ListsIndexRouteImport } from './routes/lists.index'
@@ -24,6 +26,16 @@ const IndexRoute = IndexRouteImport.update({
 const LibraryRoute = LibraryRouteImport.update({
   id: '/library',
   path: '/library',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PasskeysRoute = PasskeysRouteImport.update({
+  id: '/passkeys',
+  path: '/passkeys',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PicksRoute = PicksRouteImport.update({
@@ -50,6 +62,8 @@ const ListsIdRoute = ListsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
+  '/login': typeof LoginRoute
+  '/passkeys': typeof PasskeysRoute
   '/picks': typeof PicksRoute
   '/taste': typeof TasteRoute
   '/lists/$id': typeof ListsIdRoute
@@ -58,6 +72,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
+  '/login': typeof LoginRoute
+  '/passkeys': typeof PasskeysRoute
   '/picks': typeof PicksRoute
   '/taste': typeof TasteRoute
   '/lists/$id': typeof ListsIdRoute
@@ -67,6 +83,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/library': typeof LibraryRoute
+  '/login': typeof LoginRoute
+  '/passkeys': typeof PasskeysRoute
   '/picks': typeof PicksRoute
   '/taste': typeof TasteRoute
   '/lists/$id': typeof ListsIdRoute
@@ -74,13 +92,31 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/library' | '/picks' | '/taste' | '/lists/$id' | '/lists/'
+  fullPaths:
+    | '/'
+    | '/library'
+    | '/login'
+    | '/passkeys'
+    | '/picks'
+    | '/taste'
+    | '/lists/$id'
+    | '/lists/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/library' | '/picks' | '/taste' | '/lists/$id' | '/lists'
+  to:
+    | '/'
+    | '/library'
+    | '/login'
+    | '/passkeys'
+    | '/picks'
+    | '/taste'
+    | '/lists/$id'
+    | '/lists'
   id:
     | '__root__'
     | '/'
     | '/library'
+    | '/login'
+    | '/passkeys'
     | '/picks'
     | '/taste'
     | '/lists/$id'
@@ -90,6 +126,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LibraryRoute: typeof LibraryRoute
+  LoginRoute: typeof LoginRoute
+  PasskeysRoute: typeof PasskeysRoute
   PicksRoute: typeof PicksRoute
   TasteRoute: typeof TasteRoute
   ListsIdRoute: typeof ListsIdRoute
@@ -110,6 +148,20 @@ declare module '@tanstack/react-router' {
       path: '/library'
       fullPath: '/library'
       preLoaderRoute: typeof LibraryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/passkeys': {
+      id: '/passkeys'
+      path: '/passkeys'
+      fullPath: '/passkeys'
+      preLoaderRoute: typeof PasskeysRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/picks': {
@@ -146,6 +198,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LibraryRoute: LibraryRoute,
+  LoginRoute: LoginRoute,
+  PasskeysRoute: PasskeysRoute,
   PicksRoute: PicksRoute,
   TasteRoute: TasteRoute,
   ListsIdRoute: ListsIdRoute,

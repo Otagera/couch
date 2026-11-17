@@ -7,6 +7,7 @@
  * the production image with no node_modules (docker exec ... node src/server/cli.ts).
  */
 
+import { listPasskeys, resetAuth } from "./auth/store.ts";
 import { config } from "./config.ts";
 import { closeDb } from "./db/index.ts";
 import { filmStats } from "./films.ts";
@@ -29,7 +30,9 @@ const USAGE = `Couch: what to watch next
         --new      Generate new picks (one OpenRouter call)
         --dry-run  Print exactly what would be sent to the model; no call
         --model X  Use OpenRouter model X for this run (compare models)
-  status           What is configured and synced`;
+  status           What is configured and synced
+  passkeys         List passkeys; "passkeys reset" removes all passkeys and
+                   sessions so the setup code can register a new one`;
 
 async function main(): Promise<void> {
 	const [command, ...rest] = process.argv.slice(2);
@@ -175,6 +178,23 @@ async function main(): Promise<void> {
 					? "TV data from Simkl (simkl.com) and TMDB."
 					: "Film data from Letterboxd and TMDB.",
 			);
+			return;
+		}
+
+		case "passkeys": {
+			if (rest[0] === "reset") {
+				const r = resetAuth();
+				console.log(
+					`Removed ${r.passkeys} passkeys and ${r.sessions} sessions. Open /login and use the setup code.`,
+				);
+				return;
+			}
+			const keys = listPasskeys();
+			if (!keys.length) console.log("No passkeys yet.");
+			for (const k of keys)
+				console.log(
+					`${k.name}  added ${k.createdAt.slice(0, 10)}  last used ${k.lastUsedAt?.slice(0, 10) ?? "never"}`,
+				);
 			return;
 		}
 

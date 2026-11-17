@@ -13,7 +13,7 @@ explaining each pick in terms of what you have already watched.
   each one good or not for me; that feeds the next run.
 - **Lists:** Letterboxd lists you follow (your own and liked ones from the export,
   plus any list URL you paste), with progress and what's next. Read from the public
-  list page at most once a day.
+  list page at most once a week (Re-read on a list page anytime).
 - **Library:** your Simkl shows by status, with ratings and progress.
 - **Taste:** the written taste profile picks are based on, plus your own notes to
   correct it.
@@ -98,14 +98,22 @@ One-time setup:
 1. In Coolify: **New Resource > Docker Compose**, pointed at this repository. Leave
    the domain field empty; routing comes from the labels in `docker-compose.yml`
    (`couch.otagera.xyz`).
-2. Set the environment variables from `.env.example`, including `COUCH_AUTH_USER`
-   and `COUCH_AUTH_PASSWORD` (the app is open without them), and
-   `COUCH_IMAGE=ghcr.io/otagera/couch:latest`.
+2. Set the environment variables from `.env.example`, including `COUCH_SETUP_CODE`
+   (the app is open without it) and `COUCH_IMAGE=ghcr.io/otagera/couch:latest`.
 3. DNS: point `couch.otagera.xyz` at the host, proxying off.
 4. Repository secrets: `COOLIFY_WEBHOOK_URL` and `COOLIFY_TOKEN`, as in comics.
 5. Optional: copy your Letterboxd CSVs to `/mnt/HC_Volume_106816620/couch/letterboxd/`.
 
-Then open the site and click **Connect Simkl**.
+Then open the site, enter the setup code to create your passkey (fingerprint or
+face), and click **Connect Simkl**.
+
+### Sign-in
+
+Couch signs in with passkeys only. The setup code registers the first one; after
+that, add devices from **Passkeys** (footer): passkeys synced by iCloud Keychain or
+Google Password Manager just work, and any other device can be added with a
+one-time 10-minute code. Locked out? Run `node src/server/cli.ts passkeys reset`
+in the container and use the setup code again.
 
 Maintenance CLI inside the container:
 

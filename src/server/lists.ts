@@ -9,7 +9,7 @@
  *
  * Letterboxd has no API, so a list is read from its public page (100 films
  * per page). That is scraping: it can break if Letterboxd changes its markup,
- * so it is done sparingly -- each list at most once a day, pages one at a
+ * so it is done sparingly -- each list at most once a week, pages one at a
  * time with a pause -- and a failure only marks that list, never the sync.
  *
  * Items are matched to TMDB without extra Letterboxd requests: first against
@@ -27,7 +27,10 @@ import { findMovieId } from "./tmdbMovies.ts";
 
 const log = createLogger("lists");
 
-const REFRESH_MS = 86_400_000;
+/** How often a followed list is re-read. Progress is live regardless; this
+ * only picks up edits to the list itself. Re-read on the list page anytime. */
+const REFRESH_MS =
+	Number(process.env.COUCH_LIST_REFRESH_DAYS ?? 7) * 86_400_000;
 const PAGE_PAUSE_MS = 1200;
 const MAX_PAGES = 20;
 const UA = { "User-Agent": "couch/1.0 (personal watch tracker)" };

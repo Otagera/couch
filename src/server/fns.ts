@@ -7,6 +7,7 @@
  */
 
 import { createServerFn } from "@tanstack/react-start";
+import { authEnabled } from "./auth/store.ts";
 import { config } from "./config.ts";
 import { filmStats } from "./films.ts";
 import { getHome as buildHome } from "./home.ts";
@@ -62,6 +63,7 @@ async function guarded<T>(
 
 export const getStatus = createServerFn({ method: "GET" }).handler(
 	async () => ({
+		authEnabled: authEnabled(),
 		simklConfigured: simklConfigured(),
 		simklConnected: simklConfigured() && isLoggedIn(),
 		tmdbConfigured: Boolean(config.tmdbApiKey),
