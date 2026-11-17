@@ -183,50 +183,50 @@ class CacheService {
     async saveDiaryEntries(entries) {
         await this.db("diary").del();
         // Convert Date objects to ISO strings for SQLite
-        const serializedEntries = entries.map(e => ({
+        const serializedEntries = entries.map((e) => ({
             ...e,
             LoggedDate: e.LoggedDate.toISOString(),
-            WatchedDate: e.WatchedDate.toISOString()
+            WatchedDate: e.WatchedDate.toISOString(),
         }));
         await this.db.batchInsert("diary", serializedEntries);
     }
     async getDiaryEntries() {
         const rows = await this.db("diary").select();
-        return rows.map(r => ({
+        return rows.map((r) => ({
             ...r,
             LoggedDate: new Date(r.LoggedDate),
             WatchedDate: new Date(r.WatchedDate),
-            Rewatch: Boolean(r.Rewatch)
+            Rewatch: Boolean(r.Rewatch),
         }));
     }
     async saveRatingEntries(entries) {
         await this.db("ratings").del();
-        const serializedEntries = entries.map(e => ({
+        const serializedEntries = entries.map((e) => ({
             ...e,
-            Date: e.Date.toISOString()
+            Date: e.Date.toISOString(),
         }));
         await this.db.batchInsert("ratings", serializedEntries);
     }
     async getRatingEntries() {
         const rows = await this.db("ratings").select();
-        return rows.map(r => ({
+        return rows.map((r) => ({
             ...r,
-            Date: new Date(r.Date)
+            Date: new Date(r.Date),
         }));
     }
     async saveWatchlistEntries(entries) {
         await this.db("watchlist").del();
-        const serializedEntries = entries.map(e => ({
+        const serializedEntries = entries.map((e) => ({
             ...e,
-            Date: e.Date.toISOString()
+            Date: e.Date.toISOString(),
         }));
         await this.db.batchInsert("watchlist", serializedEntries);
     }
     async getWatchlistEntries() {
         const rows = await this.db("watchlist").select();
-        return rows.map(r => ({
+        return rows.map((r) => ({
             ...r,
-            Date: new Date(r.Date)
+            Date: new Date(r.Date),
         }));
     }
     async saveSavedLists(entries) {

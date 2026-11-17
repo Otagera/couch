@@ -34,10 +34,10 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VectorService = void 0;
-const chromadb_1 = require("chromadb");
 const child_process_1 = require("child_process");
-const path = __importStar(require("path"));
+const chromadb_1 = require("chromadb");
 const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
 class VectorService {
     client;
     collections = new Map(); // Cache collections
@@ -55,7 +55,7 @@ class VectorService {
             console.log("✅ ChromaDB is already running.");
             return;
         }
-        catch (error) {
+        catch {
             console.log("🌀 ChromaDB not found. Starting sidecar instance...");
         }
         // Ensure data directory exists
@@ -78,7 +78,7 @@ class VectorService {
                 console.log("✅ ChromaDB sidecar started successfully.");
                 return;
             }
-            catch (e) {
+            catch {
                 await new Promise((resolve) => setTimeout(resolve, 1000));
                 retries--;
             }

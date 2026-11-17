@@ -2,10 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RecommendationService = void 0;
 const app_config_1 = require("../app.config");
+const errors_1 = require("../errors");
+const logger_1 = require("../logger");
 const embedding_service_1 = require("./embedding.service");
 const vector_service_1 = require("./vector.service");
-const logger_1 = require("../logger");
-const errors_1 = require("../errors");
 class RecommendationService {
     config = (0, app_config_1.getConfig)();
     tmdbService;
@@ -248,30 +248,6 @@ class RecommendationService {
             keywords: keywordCounts,
         };
     }
-    getGenreList() {
-        // This list could be fetched from TMDb API, but for simplicity, it's hardcoded here.
-        return [
-            { id: 28, name: "Action" },
-            { id: 12, name: "Adventure" },
-            { id: 16, name: "Animation" },
-            { id: 35, name: "Comedy" },
-            { id: 80, name: "Crime" },
-            { id: 99, name: "Documentary" },
-            { id: 18, name: "Drama" },
-            { id: 10751, name: "Family" },
-            { id: 14, name: "Fantasy" },
-            { id: 36, name: "History" },
-            { id: 27, name: "Horror" },
-            { id: 10402, name: "Music" },
-            { id: 9648, name: "Mystery" },
-            { id: 10749, name: "Romance" },
-            { id: 878, name: "Science Fiction" },
-            { id: 10770, name: "TV Movie" },
-            { id: 53, name: "Thriller" },
-            { id: 10752, name: "War" },
-            { id: 37, name: "Western" },
-        ];
-    }
     async ensureMovieEmbeddingsPopulated(movies) {
         const errors = [];
         let successCount = 0;
@@ -291,7 +267,7 @@ class RecommendationService {
             catch (error) {
                 errors.push({
                     movie: movieName,
-                    error: error instanceof Error ? error.message : new Error(String(error)),
+                    error: error instanceof Error ? error.message : String(error),
                 });
                 this.logger.warn(`Failed to embed movie ${movieName}`, error);
             }
@@ -312,7 +288,7 @@ class RecommendationService {
                 failureRate: errors.length / movies.length,
                 sampleFailures: errors.slice(0, 5).map((e) => ({
                     movie: e.movie,
-                    error: e.error.message,
+                    error: e.error,
                 })),
             });
         }
@@ -320,7 +296,7 @@ class RecommendationService {
             this.logger.warn(`Some movies failed to embed: ${errors.length}/${movies.length}`, {
                 sampleFailures: errors.slice(0, 5).map((e) => ({
                     movie: e.movie,
-                    error: e.error.message,
+                    error: e.error,
                 })),
             });
         }
@@ -355,8 +331,7 @@ class RecommendationService {
         }
         return null;
     }
-    async populateMoviePool(collection, pagesToFetch = 1 // Fetch 1 page to keep it fast, but from a random category
-    ) {
+    async populateMoviePool(collection, pagesToFetch = 1) {
         if (!this.embeddingService) {
             console.warn("EmbeddingService not initialized. Cannot populate movie pool.");
             return;
@@ -436,7 +411,9 @@ class RecommendationService {
         }
         // Check for director matches
         if (movieCredits && movieCredits.crew && tasteProfile.directors.size > 0) {
-            const movieDirectors = new Set(movieCredits.crew.filter((c) => c.job === "Director").map((c) => c.name));
+            const movieDirectors = new Set(movieCredits.crew
+                .filter((c) => c.job === "Director")
+                .map((c) => c.name));
             const matchedDirectors = [...tasteProfile.directors.keys()].filter((director) => movieDirectors.has(director));
             if (matchedDirectors.length > 0) {
                 reasons.push(`It's directed by ${matchedDirectors.slice(0, 1).join(", ")}.`);

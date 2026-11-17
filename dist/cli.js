@@ -37,17 +37,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runCli = runCli;
-const inquirer_1 = __importDefault(require("inquirer"));
-const dotenv_1 = __importDefault(require("dotenv"));
 const cli_spinners_1 = __importDefault(require("cli-spinners"));
+const dotenv_1 = __importDefault(require("dotenv"));
 const fs = __importStar(require("fs"));
+const inquirer_1 = __importDefault(require("inquirer"));
 const path = __importStar(require("path"));
-const tmdb_service_1 = require("./services/tmdb.service");
-const recommendation_service_1 = require("./services/recommendation.service");
 const cache_service_1 = require("./services/cache.service");
-const letterboxd_service_1 = require("./services/letterboxd.service");
-const watchlist_service_1 = require("./services/watchlist.service");
 const data_sync_service_1 = require("./services/data-sync.service");
+const letterboxd_service_1 = require("./services/letterboxd.service");
+const recommendation_service_1 = require("./services/recommendation.service");
+const tmdb_service_1 = require("./services/tmdb.service");
+const watchlist_service_1 = require("./services/watchlist.service");
 // Helper function to create and manage a spinner
 function createSpinner(text) {
     const spinner = cli_spinners_1.default.dots;
@@ -83,16 +83,18 @@ async function runCli() {
     dotenv_1.default.config();
     const cacheService = new cache_service_1.CacheService();
     await cacheService.init();
-    let tmdbApiKey = process.env.TMDB_API_KEY;
-    let countryCode = process.env.STREAMING_COUNTRY_CODE;
+    const tmdbApiKey = process.env.TMDB_API_KEY;
+    const countryCode = process.env.STREAMING_COUNTRY_CODE;
     if (!tmdbApiKey || !countryCode) {
         console.log("\r\n👋 Welcome! It looks like this is your first time or configuration is missing.");
-        const { setup } = await inquirer_1.default.prompt([{
+        const { setup } = await inquirer_1.default.prompt([
+            {
                 type: "confirm",
                 name: "setup",
                 message: "Would you like to configure your TMDb API key and Country Code now?",
-                default: true
-            }]);
+                default: true,
+            },
+        ]);
         if (setup) {
             const { tmdbKey, country } = await inquirer_1.default.prompt([
                 {
@@ -132,8 +134,6 @@ async function runCli() {
             .filter((s) => s.length > 0);
     }
     const letterboxdService = new letterboxd_service_1.LetterboxdService(cacheService);
-    const useScraping = process.env.LETTERBOXD_USE_SCRAPING === "true";
-    const dataSyncService = new data_sync_service_1.DataSyncService(cacheService, letterboxdService, useScraping);
     const tmdbService = new tmdb_service_1.TMDbService(tmdbApiKey, cacheService);
     const recommendationService = new recommendation_service_1.RecommendationService(tmdbService);
     await recommendationService.init();
@@ -367,7 +367,8 @@ async function runCli() {
                                 countryProviders.link &&
                                 countryProviders.flatrate) {
                                 const availableOnSubscribed = countryProviders.flatrate.filter((provider) => subscribedServices.includes(provider.provider_name.toLowerCase()));
-                                if (availableOnSubscribed.length > 0 || subscribedServices.length === 0) {
+                                if (availableOnSubscribed.length > 0 ||
+                                    subscribedServices.length === 0) {
                                     console.log(`How about watching: ${movie.Name}?`);
                                     if (availableOnSubscribed.length > 0) {
                                         console.log("You can stream it on:");

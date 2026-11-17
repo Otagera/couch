@@ -1,7 +1,7 @@
 import knex from "knex";
 import path from "path";
-import { DiaryEntry, RatingEntry, WatchlistEntry } from "../interface";
 import { getConfig } from "../app.config";
+import { DiaryEntry, RatingEntry, WatchlistEntry } from "../interface";
 
 export interface WatchlistAvailability {
 	[movieName: string]: {
@@ -69,7 +69,7 @@ export class CacheService {
 		}
 
 		const hasDiscoverMoviesCacheTable = await this.db.schema.hasTable(
-			"discover_movies_cache"
+			"discover_movies_cache",
 		);
 		if (!hasDiscoverMoviesCacheTable) {
 			await this.db.schema.createTable("discover_movies_cache", (table) => {
@@ -226,55 +226,55 @@ export class CacheService {
 	async saveDiaryEntries(entries: DiaryEntry[]) {
 		await this.db("diary").del();
 		// Convert Date objects to ISO strings for SQLite
-		const serializedEntries = entries.map(e => ({
+		const serializedEntries = entries.map((e) => ({
 			...e,
 			LoggedDate: e.LoggedDate.toISOString(),
-			WatchedDate: e.WatchedDate.toISOString()
+			WatchedDate: e.WatchedDate.toISOString(),
 		}));
 		await this.db.batchInsert("diary", serializedEntries);
 	}
 
 	async getDiaryEntries(): Promise<DiaryEntry[]> {
 		const rows = await this.db("diary").select();
-		return rows.map(r => ({
+		return rows.map((r) => ({
 			...r,
 			LoggedDate: new Date(r.LoggedDate),
 			WatchedDate: new Date(r.WatchedDate),
-			Rewatch: Boolean(r.Rewatch)
+			Rewatch: Boolean(r.Rewatch),
 		}));
 	}
 
 	async saveRatingEntries(entries: RatingEntry[]) {
 		await this.db("ratings").del();
-		const serializedEntries = entries.map(e => ({
+		const serializedEntries = entries.map((e) => ({
 			...e,
-			Date: e.Date.toISOString()
+			Date: e.Date.toISOString(),
 		}));
 		await this.db.batchInsert("ratings", serializedEntries);
 	}
 
 	async getRatingEntries(): Promise<RatingEntry[]> {
 		const rows = await this.db("ratings").select();
-		return rows.map(r => ({
+		return rows.map((r) => ({
 			...r,
-			Date: new Date(r.Date)
+			Date: new Date(r.Date),
 		}));
 	}
 
 	async saveWatchlistEntries(entries: WatchlistEntry[]) {
 		await this.db("watchlist").del();
-		const serializedEntries = entries.map(e => ({
+		const serializedEntries = entries.map((e) => ({
 			...e,
-			Date: e.Date.toISOString()
+			Date: e.Date.toISOString(),
 		}));
 		await this.db.batchInsert("watchlist", serializedEntries);
 	}
 
 	async getWatchlistEntries(): Promise<WatchlistEntry[]> {
 		const rows = await this.db("watchlist").select();
-		return rows.map(r => ({
+		return rows.map((r) => ({
 			...r,
-			Date: new Date(r.Date)
+			Date: new Date(r.Date),
 		}));
 	}
 
@@ -289,7 +289,7 @@ export class CacheService {
 
 	public async getPreviousAvailability(): Promise<WatchlistAvailability> {
 		const availability = await this.get<WatchlistAvailability>(
-			"watchlist-availability"
+			"watchlist-availability",
 		);
 		return availability || {};
 	}

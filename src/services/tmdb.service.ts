@@ -1,7 +1,7 @@
 import axios from "axios";
-import { CacheService } from "./cache.service";
-import { createLogger } from "../logger";
 import { TMDBError } from "../errors";
+import { createLogger } from "../logger";
+import { CacheService } from "./cache.service";
 
 const TMDB_API_BASE_URL = "https://api.themoviedb.org/3";
 
@@ -44,7 +44,7 @@ export class TMDbService {
 							title,
 							status: error.response.status,
 							data: error.response.data,
-						}
+						},
 					);
 				} else if (error.request) {
 					throw new TMDBError(`TMDb API request error: No response received`, {
@@ -110,12 +110,15 @@ export class TMDbService {
 			}
 
 			this.logger.debug("Fetching movie details from API", { movieId });
-			const response = await axios.get(`${TMDB_API_BASE_URL}/movie/${movieId}`, {
-				params: {
-					api_key: this.apiKey,
+			const response = await axios.get(
+				`${TMDB_API_BASE_URL}/movie/${movieId}`,
+				{
+					params: {
+						api_key: this.apiKey,
+					},
+					timeout: 5000,
 				},
-				timeout: 5000,
-			});
+			);
 			const movieDetails = response.data;
 			await this.cacheService.saveMovie(movieDetails);
 			return movieDetails;
@@ -350,16 +353,13 @@ export class TMDbService {
 			}
 
 			this.logger.debug("Fetching top rated movies from API", { page });
-			const response = await axios.get(
-				`${TMDB_API_BASE_URL}/movie/top_rated`,
-				{
-					params: {
-						api_key: this.apiKey,
-						page,
-					},
-					timeout: 5000,
+			const response = await axios.get(`${TMDB_API_BASE_URL}/movie/top_rated`, {
+				params: {
+					api_key: this.apiKey,
+					page,
 				},
-			);
+				timeout: 5000,
+			});
 			const movies = response.data.results;
 			await this.cacheService.set(cacheKey, movies);
 			return movies;

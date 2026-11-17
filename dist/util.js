@@ -37,9 +37,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.loadCsvData = loadCsvData;
+const csv_parser_1 = __importDefault(require("csv-parser"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-const csv_parser_1 = __importDefault(require("csv-parser"));
 const DATA_DIR = path.join(process.cwd(), "data");
 async function loadCsvData(fileName) {
     const filePath = path.join(DATA_DIR, fileName);

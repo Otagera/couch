@@ -1,7 +1,7 @@
-import * as cheerio from "cheerio";
 import axios from "axios";
-import { CacheService } from "./cache.service";
+import * as cheerio from "cheerio";
 import { DiaryEntry, RatingEntry, WatchlistEntry } from "../interface";
+import { CacheService } from "./cache.service";
 
 export class LetterboxdService {
 	private cacheService: CacheService;
@@ -13,11 +13,15 @@ export class LetterboxdService {
 		try {
 			const puppeteer = await import("puppeteer");
 			return await puppeteer.default.launch({ headless: true });
-		} catch (error) {
+		} catch {
 			console.error("\r\n❌ ERROR: Scraping capability is missing!");
-			console.error("To enable Letterboxd scraping, you must manually install puppeteer:");
+			console.error(
+				"To enable Letterboxd scraping, you must manually install puppeteer:",
+			);
 			console.error("\r\n   npm install puppeteer\r\n");
-			throw new Error("Puppeteer not found. Install it to use scraping features.");
+			throw new Error(
+				"Puppeteer not found. Install it to use scraping features.",
+			);
 		}
 	}
 
@@ -61,10 +65,8 @@ export class LetterboxdService {
 
 	public async scrapeRatings(profileUrl: string): Promise<RatingEntry[]> {
 		const baseUrl = new URL(profileUrl);
-		const ratingsUrl = new URL(
-			`${baseUrl.pathname}/films/`,
-			baseUrl.origin
-		).href;
+		const ratingsUrl = new URL(`${baseUrl.pathname}/films/`, baseUrl.origin)
+			.href;
 
 		const browser = await this.getBrowser();
 		const page = await browser.newPage();
@@ -84,18 +86,20 @@ export class LetterboxdService {
 				const name = $(element).attr("data-item-name");
 				const letterboxdURI = $(element).attr("data-item-slug");
 				// Ratings are in a sibling div, not a parent. Let's find it.
-				const ratingSpan = $(element).find('span.rating');
+				const ratingSpan = $(element).find("span.rating");
 				let rating = 0;
 				if (ratingSpan.length > 0) {
-					const ratingClasses = ratingSpan.attr('class')?.split(' ');
-					const ratedClass = ratingClasses?.find(c => c.startsWith('rated-'));
+					const ratingClasses = ratingSpan.attr("class")?.split(" ");
+					const ratedClass = ratingClasses?.find((c) => c.startsWith("rated-"));
 					if (ratedClass) {
-						rating = parseInt(ratedClass.split('-')[1], 10) / 2;
+						rating = parseInt(ratedClass.split("-")[1], 10) / 2;
 					}
 				}
 
 				if (name && letterboxdURI) {
-					console.log(`- Found: ${name} (${letterboxdURI}) - Rating: ${rating}`);
+					console.log(
+						`- Found: ${name} (${letterboxdURI}) - Rating: ${rating}`,
+					);
 					ratings.push({
 						Name: name,
 						LetterboxdURI: letterboxdURI,
@@ -125,7 +129,7 @@ export class LetterboxdService {
 		const baseUrl = new URL(profileUrl);
 		const watchlistUrl = new URL(
 			`${baseUrl.pathname}/watchlist/`,
-			baseUrl.origin
+			baseUrl.origin,
 		).href;
 
 		const browser = await this.getBrowser();
@@ -185,13 +189,17 @@ export class LetterboxdService {
 		rows.each((_, element) => {
 			const title = $(element).find("h3 a").text();
 			const year = parseInt($(element).find("td.td-year").text(), 10);
-			const ratingStr = $(element).find("td.td-rating .rating").attr('class');
-			const rating = ratingStr ? parseInt(ratingStr.split('rated-').pop() || '0', 10) / 2 : 0;
-			const letterboxdURI = $(element).find('h3 a').attr('href');
-			const rewatch = $(element).find('td.td-rewatch').text().includes('rewatch');
-			const datePath = $(element).find('td.td-day a').attr('href')?.split('/');
+			const ratingStr = $(element).find("td.td-rating .rating").attr("class");
+			const rating = ratingStr
+				? parseInt(ratingStr.split("rated-").pop() || "0", 10) / 2
+				: 0;
+			const letterboxdURI = $(element).find("h3 a").attr("href");
+			const rewatch = $(element)
+				.find("td.td-rewatch")
+				.text()
+				.includes("rewatch");
+			const datePath = $(element).find("td.td-day a").attr("href")?.split("/");
 			const date = datePath ? new Date(datePath[5]) : new Date();
-
 
 			if (title && year && letterboxdURI) {
 				console.log(`- Found: ${title} (${year}) - Rating: ${rating}`);
@@ -203,7 +211,7 @@ export class LetterboxdService {
 					Rewatch: rewatch,
 					LoggedDate: date,
 					WatchedDate: date,
-					Tags: ''
+					Tags: "",
 				});
 			}
 		});

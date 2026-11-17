@@ -30,7 +30,7 @@ export class EmbeddingService {
 			extractor = await pipeline(
 				"feature-extraction",
 				config.huggingface.modelName,
-				{ quantized: false }
+				{ quantized: false },
 			);
 			console.log("Embedding model loaded.");
 		}

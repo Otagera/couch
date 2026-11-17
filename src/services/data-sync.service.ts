@@ -1,5 +1,5 @@
-import { loadCsvData } from "../util";
 import { DiaryEntry, RatingEntry, WatchlistEntry } from "../interface";
+import { loadCsvData } from "../util";
 import { CacheService } from "./cache.service";
 import { LetterboxdService } from "./letterboxd.service";
 
@@ -12,7 +12,7 @@ export class DataSyncService {
 	constructor(
 		private cacheService: CacheService,
 		private letterboxdService: LetterboxdService,
-		private useScraping: boolean
+		private useScraping: boolean,
 	) {}
 
 	public async syncData(profileUrl?: string) {
@@ -22,25 +22,23 @@ export class DataSyncService {
 			if (!profileUrl) {
 				throw new Error("Profile URL is required for scraping.");
 			}
-			if(!URL.canParse(profileUrl)){
+			if (!URL.canParse(profileUrl)) {
 				throw new Error("Invalid profile URL.");
 			}
-			if(profileUrl[profileUrl.length-1] !== "/"){
+			if (profileUrl[profileUrl.length - 1] !== "/") {
 				profileUrl += "/";
 			}
 			const diaryData = await this.letterboxdService.scrapeDiary(profileUrl);
 			await this.cacheService.saveDiaryEntries(diaryData);
 			console.log(`Synced ${diaryData.length} diary entries.`);
 
-			const watchlistData = await this.letterboxdService.scrapeWatchlist(
-				profileUrl
-			);
+			const watchlistData =
+				await this.letterboxdService.scrapeWatchlist(profileUrl);
 			await this.cacheService.saveWatchlistEntries(watchlistData);
 			console.log(`Synced ${watchlistData.length} watchlist entries.`);
 
-			const ratingsData = await this.letterboxdService.scrapeRatings(
-				profileUrl
-			);
+			const ratingsData =
+				await this.letterboxdService.scrapeRatings(profileUrl);
 			await this.cacheService.saveRatingEntries(ratingsData);
 			console.log(`Synced ${ratingsData.length} ratings entries.`);
 		} else {
@@ -82,9 +80,8 @@ export class DataSyncService {
 			await this.cacheService.saveDiaryEntries(diaryData);
 			console.log(`Synced ${diaryData.length} diary entries.`);
 
-			const rawWatchlistData = await loadCsvData<RawWatchlistEntry>(
-				"watchlist.csv"
-			);
+			const rawWatchlistData =
+				await loadCsvData<RawWatchlistEntry>("watchlist.csv");
 			const watchlistData: WatchlistEntry[] = rawWatchlistData.map((entry) => ({
 				Date: new Date(entry.Date),
 				Name: entry.Name,
@@ -94,9 +91,7 @@ export class DataSyncService {
 			await this.cacheService.saveWatchlistEntries(watchlistData);
 			console.log(`Synced ${watchlistData.length} watchlist entries.`);
 
-			const rawRatingsData = await loadCsvData<RawRatingEntry>(
-				"ratings.csv"
-			);
+			const rawRatingsData = await loadCsvData<RawRatingEntry>("ratings.csv");
 			const ratingsData: RatingEntry[] = rawRatingsData.map((entry) => ({
 				Date: new Date(entry.Date),
 				Name: entry.Name,

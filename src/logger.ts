@@ -8,7 +8,7 @@ export enum LogLevel {
 export class Logger {
 	constructor(
 		private context: string,
-		private minLevel: LogLevel = LogLevel.INFO
+		private minLevel: LogLevel = LogLevel.INFO,
 	) {}
 
 	private log(level: LogLevel, message: string, meta?: unknown) {

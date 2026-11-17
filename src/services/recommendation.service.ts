@@ -1,19 +1,19 @@
 import { Collection } from "chromadb";
+import { getConfig } from "../app.config";
+import { EmbeddingError } from "../errors";
 import {
 	DiaryEntry,
 	RatingEntry,
 	ScoredMovieCandidate,
+	TasteProfile,
 	TMDbCredits,
 	TMDbMovie,
-	TasteProfile,
 	WatchlistEntry,
 } from "../interface";
-import { getConfig } from "../app.config";
+import { createLogger } from "../logger";
 import { EmbeddingService } from "./embedding.service";
 import { TMDbService } from "./tmdb.service";
 import { VectorService } from "./vector.service";
-import { createLogger } from "../logger";
-import { EmbeddingError } from "../errors";
 
 export class RecommendationService {
 	private config = getConfig();
@@ -37,7 +37,7 @@ export class RecommendationService {
 		watchlist: WatchlistEntry[],
 		highlyRatedMovies: RatingEntry[],
 		subscribedServices?: string[],
-		countryCode?: string
+		countryCode?: string,
 	) {
 		if (!this.embeddingService) {
 			throw new Error("Embedding service not initialized. Call init() first.");
@@ -61,7 +61,7 @@ export class RecommendationService {
 
 		if (highlyRatedMovieEmbeddings.length === 0) {
 			console.log(
-				"No embeddings found for highly rated movies. Cannot generate recommendations based on taste profile."
+				"No embeddings found for highly rated movies. Cannot generate recommendations based on taste profile.",
 			);
 			return [];
 		}
@@ -70,19 +70,19 @@ export class RecommendationService {
 		const tasteProfileEmbedding = highlyRatedMovieEmbeddings[0].map(
 			(_, i) =>
 				highlyRatedMovieEmbeddings.reduce((sum, vec) => sum + vec[i], 0) /
-				highlyRatedMovieEmbeddings.length
+				highlyRatedMovieEmbeddings.length,
 		);
 
 		console.log("Finding movies you might like using semantic search...");
 		const watchedMovieNames = new Set(diary.map((d) => d.Name.toLowerCase()));
 		const watchlistMovieNames = new Set(
-			watchlist.map((w) => w.Name.toLowerCase())
+			watchlist.map((w) => w.Name.toLowerCase()),
 		);
 
 		const chromaResults = await this.vectorService.queryCollection(
 			this.config.chromaDB.collectionName,
 			tasteProfileEmbedding,
-			this.config.recommendations.chromaTopK
+			this.config.recommendations.chromaTopK,
 		);
 
 		const candidateMovieIds = new Set<string>();
@@ -99,9 +99,8 @@ export class RecommendationService {
 				const tmdbMovieId = parseInt(id, 10);
 				if (isNaN(tmdbMovieId)) continue;
 
-				const movieDetails: TMDbMovie = await this.tmdbService.getMovieDetails(
-					tmdbMovieId
-				);
+				const movieDetails: TMDbMovie =
+					await this.tmdbService.getMovieDetails(tmdbMovieId);
 				if (!movieDetails) continue;
 
 				if (
@@ -130,7 +129,7 @@ export class RecommendationService {
 		chromaScoredCandidates.sort((a, b) => b.score - a.score);
 
 		console.log(
-			`Candidates after semantic search and filtering: ${chromaScoredCandidates.length}`
+			`Candidates after semantic search and filtering: ${chromaScoredCandidates.length}`,
 		);
 
 		// Re-introduce original taste profile building for detailed scoring
@@ -142,10 +141,10 @@ export class RecommendationService {
 		// to the semantically filtered candidates
 		for (const candidate of chromaScoredCandidates) {
 			const movieDetails: TMDbMovie = await this.tmdbService.getMovieDetails(
-				candidate.id
+				candidate.id,
 			);
 			const movieCredits: TMDbCredits = await this.tmdbService.getMovieCredits(
-				candidate.id
+				candidate.id,
 			);
 
 			let detailedScore = 0;
@@ -175,7 +174,7 @@ export class RecommendationService {
 				const movieDirectors = new Set(
 					movieCredits.crew
 						.filter((c) => c.job === "Director")
-						.map((c) => c.name)
+						.map((c) => c.name),
 				);
 				for (const [director, count] of tasteProfile.directors.entries()) {
 					if (movieDirectors.has(director)) {
@@ -189,7 +188,7 @@ export class RecommendationService {
 				const movieWriters = new Set(
 					movieCredits.crew
 						.filter((c) => ["Screenplay", "Story", "Writer"].includes(c.job))
-						.map((c) => c.name)
+						.map((c) => c.name),
 				);
 				for (const [writer, count] of tasteProfile.writers.entries()) {
 					if (movieWriters.has(writer)) {
@@ -204,7 +203,7 @@ export class RecommendationService {
 					movieDetails.overview
 						.toLowerCase()
 						.split(/\W+/)
-						.filter((word: string) => word.length > 2)
+						.filter((word: string) => word.length > 2),
 				);
 				for (const [keyword, count] of tasteProfile.keywords.entries()) {
 					if (overviewWords.has(keyword)) {
@@ -227,11 +226,11 @@ export class RecommendationService {
 		const scoredCandidates = finalScoredCandidates
 			.filter((c: ScoredMovieCandidate) => c.score > 0)
 			.sort(
-				(a: ScoredMovieCandidate, b: ScoredMovieCandidate) => b.score - a.score
+				(a: ScoredMovieCandidate, b: ScoredMovieCandidate) => b.score - a.score,
 			);
 
 		console.log(
-			`Final scored candidates with score > 0: ${scoredCandidates.length}`
+			`Final scored candidates with score > 0: ${scoredCandidates.length}`,
 		);
 
 		const top5Recommendations = scoredCandidates.slice(0, 5);
@@ -247,8 +246,8 @@ export class RecommendationService {
 						const availableOnSubscribed = countryProviders.flatrate.filter(
 							(provider: { provider_name: string }) =>
 								subscribedServices.includes(
-									provider.provider_name.toLowerCase()
-								)
+									provider.provider_name.toLowerCase(),
+								),
 						);
 						if (availableOnSubscribed.length > 0) {
 							finalRecommendations.push(movie);
@@ -258,7 +257,7 @@ export class RecommendationService {
 					if (error instanceof Error) {
 						console.error(
 							`Error checking watch providers for ${movie.title}:`,
-							error.message
+							error.message,
 						);
 					}
 				}
@@ -270,7 +269,7 @@ export class RecommendationService {
 	}
 
 	private async buildTasteProfile(
-		highlyRatedMovies: RatingEntry[]
+		highlyRatedMovies: RatingEntry[],
 	): Promise<TasteProfile> {
 		const genreCounts = new Map<string, number>();
 		const actorCounts = new Map<string, number>();
@@ -293,7 +292,7 @@ export class RecommendationService {
 							movieDetails.genres.forEach((genre) => {
 								genreCounts.set(
 									genre.name,
-									(genreCounts.get(genre.name) || 0) + 1
+									(genreCounts.get(genre.name) || 0) + 1,
 								);
 							});
 						}
@@ -316,7 +315,7 @@ export class RecommendationService {
 							movieCredits.cast.slice(0, 5).forEach((castMember) => {
 								actorCounts.set(
 									castMember.name,
-									(actorCounts.get(castMember.name) || 0) + 1
+									(actorCounts.get(castMember.name) || 0) + 1,
 								);
 							});
 						}
@@ -327,14 +326,14 @@ export class RecommendationService {
 								if (crewMember.job === "Director") {
 									directorCounts.set(
 										crewMember.name,
-										(directorCounts.get(crewMember.name) || 0) + 1
+										(directorCounts.get(crewMember.name) || 0) + 1,
 									);
 								} else if (
 									["Screenplay", "Story", "Writer"].includes(crewMember.job)
 								) {
 									writerCounts.set(
 										crewMember.name,
-										(writerCounts.get(crewMember.name) || 0) + 1
+										(writerCounts.get(crewMember.name) || 0) + 1,
 									);
 								}
 							});
@@ -345,7 +344,7 @@ export class RecommendationService {
 				if (error instanceof Error) {
 					console.error(
 						`Error building taste profile for ${movie.Name}:`,
-						error.message
+						error.message,
 					);
 				}
 			}
@@ -360,42 +359,17 @@ export class RecommendationService {
 		};
 	}
 
-	private getGenreList() {
-		// This list could be fetched from TMDb API, but for simplicity, it's hardcoded here.
-		return [
-			{ id: 28, name: "Action" },
-			{ id: 12, name: "Adventure" },
-			{ id: 16, name: "Animation" },
-			{ id: 35, name: "Comedy" },
-			{ id: 80, name: "Crime" },
-			{ id: 99, name: "Documentary" },
-			{ id: 18, name: "Drama" },
-			{ id: 10751, name: "Family" },
-			{ id: 14, name: "Fantasy" },
-			{ id: 36, name: "History" },
-			{ id: 27, name: "Horror" },
-			{ id: 10402, name: "Music" },
-			{ id: 9648, name: "Mystery" },
-			{ id: 10749, name: "Romance" },
-			{ id: 878, name: "Science Fiction" },
-			{ id: 10770, name: "TV Movie" },
-			{ id: 53, name: "Thriller" },
-			{ id: 10752, name: "War" },
-			{ id: 37, name: "Western" },
-		];
-	}
-
 	private async ensureMovieEmbeddingsPopulated(
-		movies: (RatingEntry | TMDbMovie)[]
+		movies: (RatingEntry | TMDbMovie)[],
 	): Promise<void> {
-		const errors: Array<{ movie: string; error: any }> = [];
+		const errors: Array<{ movie: string; error: string }> = [];
 		let successCount = 0;
 
 		this.logger.info(`Processing embeddings for ${movies.length} movies`);
 
 		if (!this.embeddingService) {
 			this.logger.warn(
-				"EmbeddingService not initialized. Cannot populate movie embeddings."
+				"EmbeddingService not initialized. Cannot populate movie embeddings.",
 			);
 			return;
 		}
@@ -412,8 +386,7 @@ export class RecommendationService {
 			} catch (error) {
 				errors.push({
 					movie: movieName,
-					error:
-						error instanceof Error ? error.message : new Error(String(error)),
+					error: error instanceof Error ? error.message : String(error),
 				});
 				this.logger.warn(`Failed to embed movie ${movieName}`, error);
 			}
@@ -434,7 +407,7 @@ export class RecommendationService {
 				`High failure rate: ${errors.length}/${movies.length} movies failed`,
 				{
 					sampleErrors: errors.slice(0, 3).map((e) => e.movie),
-				}
+				},
 			);
 
 			throw new EmbeddingError(
@@ -443,9 +416,9 @@ export class RecommendationService {
 					failureRate: errors.length / movies.length,
 					sampleFailures: errors.slice(0, 5).map((e) => ({
 						movie: e.movie,
-						error: e.error.message,
+						error: e.error,
 					})),
-				}
+				},
 			);
 		}
 		if (errors.length > 0) {
@@ -454,15 +427,15 @@ export class RecommendationService {
 				{
 					sampleFailures: errors.slice(0, 5).map((e) => ({
 						movie: e.movie,
-						error: e.error.message,
+						error: e.error,
 					})),
-				}
+				},
 			);
 		}
 	}
 
 	private async ensureMovieEmbedding(
-		movie: RatingEntry | TMDbMovie
+		movie: RatingEntry | TMDbMovie,
 	): Promise<number[] | null> {
 		if (!this.embeddingService) {
 			throw new Error("Embedding service not initialized.");
@@ -489,11 +462,11 @@ export class RecommendationService {
 
 		// If not found in ChromaDB, generate and add it
 		const movieDetails = await this.tmdbService.getMovieDetails(
-			searchResult.id
+			searchResult.id,
 		);
 		if (movieDetails && movieDetails.overview) {
 			const embedding = await this.embeddingService.generateEmbedding(
-				movieDetails.overview
+				movieDetails.overview,
 			);
 			await this.vectorService.addDocument(
 				"movie_embeddings",
@@ -504,7 +477,7 @@ export class RecommendationService {
 					title: movieDetails.title,
 					genre_ids: movieDetails.genre_ids?.join(",") || "",
 					release_date: movieDetails.release_date,
-				}
+				},
 			);
 			return embedding;
 		}
@@ -514,11 +487,11 @@ export class RecommendationService {
 
 	private async populateMoviePool(
 		collection: Collection,
-		pagesToFetch = 1 // Fetch 1 page to keep it fast, but from a random category
+		pagesToFetch = 1, // Fetch 1 page to keep it fast, but from a random category
 	): Promise<void> {
 		if (!this.embeddingService) {
 			console.warn(
-				"EmbeddingService not initialized. Cannot populate movie pool."
+				"EmbeddingService not initialized. Cannot populate movie pool.",
 			);
 			return;
 		}
@@ -533,7 +506,7 @@ export class RecommendationService {
 			movieFetchers[Math.floor(Math.random() * movieFetchers.length)];
 
 		console.log(
-			`Populating ChromaDB with new movie embeddings (fetching ${pagesToFetch} page(s) from a random category)...`
+			`Populating ChromaDB with new movie embeddings (fetching ${pagesToFetch} page(s) from a random category)...`,
 		);
 		let newMovies: TMDbMovie[] = [];
 		for (let i = 1; i <= pagesToFetch; i++) {
@@ -547,7 +520,7 @@ export class RecommendationService {
 			} catch (error) {
 				console.error(
 					`Error populating embedding for new movie ${movie.title}:`,
-					error
+					error,
 				);
 			}
 		}
@@ -557,14 +530,14 @@ export class RecommendationService {
 	async getRandomRecommendationWithDetails(
 		highlyRatedMovies: RatingEntry[],
 		diary: DiaryEntry[],
-		watchlist: WatchlistEntry[]
+		watchlist: WatchlistEntry[],
 	) {
 		console.log("Building your taste profile for random recommendation...");
 		const tasteProfile = await this.buildTasteProfile(highlyRatedMovies);
 
 		const watchedMovieNames = new Set(diary.map((d) => d.Name.toLowerCase()));
 		const watchlistMovieNames = new Set(
-			watchlist.map((w) => w.Name.toLowerCase())
+			watchlist.map((w) => w.Name.toLowerCase()),
 		);
 
 		let randomMovie: TMDbMovie | null = null;
@@ -583,7 +556,7 @@ export class RecommendationService {
 				const availableMovies = response.results.filter(
 					(movie: TMDbMovie) =>
 						!watchedMovieNames.has(movie.title.toLowerCase()) &&
-						!watchlistMovieNames.has(movie.title.toLowerCase())
+						!watchlistMovieNames.has(movie.title.toLowerCase()),
 				);
 				if (availableMovies.length > 0) {
 					randomMovie =
@@ -597,10 +570,10 @@ export class RecommendationService {
 		}
 
 		const movieDetails: TMDbMovie = await this.tmdbService.getMovieDetails(
-			randomMovie.id
+			randomMovie.id,
 		);
 		const movieCredits: TMDbCredits = await this.tmdbService.getMovieCredits(
-			randomMovie.id
+			randomMovie.id,
 		);
 
 		const reasons: string[] = [];
@@ -609,13 +582,13 @@ export class RecommendationService {
 		if (movieDetails && movieDetails.genres && tasteProfile.genres.size > 0) {
 			const movieGenres = new Set(movieDetails.genres.map((g) => g.name));
 			const matchedGenres = [...tasteProfile.genres.keys()].filter((genre) =>
-				movieGenres.has(genre)
+				movieGenres.has(genre),
 			);
 			if (matchedGenres.length > 0) {
 				reasons.push(
 					`It's in your favorite genres: ${matchedGenres
 						.slice(0, 3)
-						.join(", ")}.`
+						.join(", ")}.`,
 				);
 			}
 		}
@@ -624,13 +597,13 @@ export class RecommendationService {
 		if (movieCredits && movieCredits.cast && tasteProfile.actors.size > 0) {
 			const movieActors = new Set(movieCredits.cast.map((c) => c.name));
 			const matchedActors = [...tasteProfile.actors.keys()].filter((actor) =>
-				movieActors.has(actor)
+				movieActors.has(actor),
 			);
 			if (matchedActors.length > 0) {
 				reasons.push(
 					`It features actors you like: ${matchedActors
 						.slice(0, 2)
-						.join(", ")}.`
+						.join(", ")}.`,
 				);
 			}
 		}
@@ -638,14 +611,16 @@ export class RecommendationService {
 		// Check for director matches
 		if (movieCredits && movieCredits.crew && tasteProfile.directors.size > 0) {
 			const movieDirectors = new Set(
-				movieCredits.crew.filter((c) => c.job === "Director").map((c) => c.name)
+				movieCredits.crew
+					.filter((c) => c.job === "Director")
+					.map((c) => c.name),
 			);
 			const matchedDirectors = [...tasteProfile.directors.keys()].filter(
-				(director) => movieDirectors.has(director)
+				(director) => movieDirectors.has(director),
 			);
 			if (matchedDirectors.length > 0) {
 				reasons.push(
-					`It's directed by ${matchedDirectors.slice(0, 1).join(", ")}.`
+					`It's directed by ${matchedDirectors.slice(0, 1).join(", ")}.`,
 				);
 			}
 		}

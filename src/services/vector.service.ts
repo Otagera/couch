@@ -1,7 +1,7 @@
-import { ChromaClient, Collection, IncludeEnum, Where } from "chromadb";
 import { spawn } from "child_process";
-import * as path from "path";
+import { ChromaClient, Collection, IncludeEnum, Where } from "chromadb";
 import * as fs from "fs";
+import * as path from "path";
 
 export class VectorService {
 	private client: ChromaClient;
@@ -13,7 +13,7 @@ export class VectorService {
 	}
 
 	/**
-	 * Ensures the ChromaDB server is running. 
+	 * Ensures the ChromaDB server is running.
 	 * If not, it attempts to start it in the background.
 	 */
 	public async ensureServerRunning(): Promise<void> {
@@ -21,7 +21,7 @@ export class VectorService {
 			await this.client.heartbeat();
 			console.log("✅ ChromaDB is already running.");
 			return;
-		} catch (error) {
+		} catch {
 			console.log("🌀 ChromaDB not found. Starting sidecar instance...");
 		}
 
@@ -32,11 +32,15 @@ export class VectorService {
 		}
 
 		// Start ChromaDB using npx
-		const chromaProcess = spawn("npx", ["chroma", "run", "--path", "./data/chroma_db"], {
-			detached: true,
-			stdio: "ignore",
-			cwd: process.cwd(),
-		});
+		const chromaProcess = spawn(
+			"npx",
+			["chroma", "run", "--path", "./data/chroma_db"],
+			{
+				detached: true,
+				stdio: "ignore",
+				cwd: process.cwd(),
+			},
+		);
 
 		chromaProcess.unref();
 
@@ -47,13 +51,15 @@ export class VectorService {
 				await this.client.heartbeat();
 				console.log("✅ ChromaDB sidecar started successfully.");
 				return;
-			} catch (e) {
+			} catch {
 				await new Promise((resolve) => setTimeout(resolve, 1000));
 				retries--;
 			}
 		}
 
-		throw new Error("Failed to start ChromaDB after 20 seconds. Please run it manually: npx chroma run --path ./data/chroma_db");
+		throw new Error(
+			"Failed to start ChromaDB after 20 seconds. Please run it manually: npx chroma run --path ./data/chroma_db",
+		);
 	}
 
 	/**
