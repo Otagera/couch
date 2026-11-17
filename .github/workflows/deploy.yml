@@ -94,7 +94,16 @@ jobs:
     environment: production
     steps:
       - name: Trigger Coolify redeploy
+        env:
+          HAS_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK_URL != '' }}
+          HAS_TOKEN: ${{ secrets.COOLIFY_TOKEN != '' }}
         run: |
+          # Until the Coolify resource exists and both secrets are set, skip
+          # cleanly: the image is still built and pushed, ready for Coolify.
+          if [ "$HAS_WEBHOOK" != "true" ] || [ "$HAS_TOKEN" != "true" ]; then
+            echo "::notice::Coolify secrets not set yet; image pushed to GHCR, deploy skipped."
+            exit 0
+          fi
           # POST, not GET: Coolify 4.3.x moved /api/v1/deploy to POST and
           # answers a GET with {"message":"This endpoint has changed to a POST
           # request."}. Unauthenticated probes return 401 before the method is
