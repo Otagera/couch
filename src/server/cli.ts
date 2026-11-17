@@ -67,6 +67,10 @@ async function main(): Promise<void> {
 					filmStats(),
 				);
 			}
+			if (r.lists)
+				console.log(
+					`Lists: ${r.lists.added} newly followed, ${r.lists.refreshed} refreshed, ${r.lists.failed} failed.`,
+				);
 			for (const e of r.errors) console.log(`Warning: ${e}`);
 			return;
 		}

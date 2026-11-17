@@ -8,8 +8,17 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { config } from "./config.ts";
-import { filmStats, watchlistStreaming } from "./films.ts";
-import { libraryStats, listShows, upNext } from "./library.ts";
+import { filmStats } from "./films.ts";
+import { getHome as buildHome } from "./home.ts";
+import { libraryStats, listShows } from "./library.ts";
+import {
+	canonicalListUrl,
+	followList,
+	listItems,
+	listProgress,
+	refreshList,
+	unfollowList,
+} from "./lists.ts";
 import { createLogger } from "./log.ts";
 import { latestPicks, type MediaKind, runPicks, setFeedback } from "./picks.ts";
 import {
@@ -23,6 +32,8 @@ import {
 } from "./simkl.ts";
 import { lastFullSync, syncAll } from "./sync.ts";
 import { buildProfile, getNotes, getProfile, setNotes } from "./taste.ts";
+import { posterUrl } from "./tmdb.ts";
+import { getMovies } from "./tmdbMovies.ts";
 
 const log = createLogger("web");
 
@@ -101,8 +112,8 @@ export const runSync = createServerFn({ method: "POST" })
 
 // --------------------------------------------------------------- library
 
-export const getUpNext = createServerFn({ method: "GET" }).handler(
-	async () => ({ ...upNext(), watchlistStreaming: watchlistStreaming() }),
+export const getHome = createServerFn({ method: "GET" }).handler(() =>
+	buildHome(),
 );
 
 export const getLibrary = createServerFn({ method: "GET" })
@@ -165,3 +176,55 @@ export const saveNotes = createServerFn({ method: "POST" })
 export const rebuildTaste = createServerFn({ method: "POST" }).handler(() =>
 	guarded("PROFILE_FAILED", async () => (await buildProfile(true)).profile),
 );
+
+// ----------------------------------------------------------------- lists
+
+export const getLists = createServerFn({ method: "GET" }).handler(async () =>
+	listProgress(),
+);
+
+export const getListDetail = createServerFn({ method: "GET" })
+	.validator((d: { id: number }) => ({ id: Number(d?.id) }))
+	.handler(async ({ data }) => {
+		const list = listProgress().find((l) => l.id === data.id) ?? null;
+		const items = list ? listItems(data.id) : [];
+		// Posters for the visible list; details are cached for a week.
+		const movies = await getMovies(
+			items.slice(0, 300).flatMap((i) => (i.tmdbId ? [i.tmdbId] : [])),
+		);
+		return {
+			list,
+			items: items.map((i) => ({
+				...i,
+				poster: posterUrl(
+					(i.tmdbId && movies.get(i.tmdbId)?.poster) || null,
+					"w185",
+				),
+			})),
+		};
+	});
+
+export const addList = createServerFn({ method: "POST" })
+	.validator((d: { url: string }) => ({
+		url: String(d?.url ?? "").slice(0, 500),
+	}))
+	.handler(({ data }) =>
+		guarded("LIST_ADD_FAILED", async () => {
+			const id = followList(await canonicalListUrl(data.url), "added");
+			await refreshList(id);
+			return { id };
+		}),
+	);
+
+export const reloadList = createServerFn({ method: "POST" })
+	.validator((d: { id: number }) => ({ id: Number(d?.id) }))
+	.handler(({ data }) =>
+		guarded("LIST_REFRESH_FAILED", () => refreshList(data.id)),
+	);
+
+export const removeList = createServerFn({ method: "POST" })
+	.validator((d: { id: number }) => ({ id: Number(d?.id) }))
+	.handler(async ({ data }) => {
+		unfollowList(data.id);
+		return { ok: true };
+	});

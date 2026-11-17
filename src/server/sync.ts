@@ -5,6 +5,7 @@
  *   TV:    Simkl library, then TMDB details for shows "up next" reasons about.
  *   Films: Letterboxd CSV export (when the files changed), the diary RSS
  *          feed, TMDB ids for new films, then providers for the watchlist.
+ *   Lists: followed Letterboxd lists, each re-read at most once a day.
  */
 
 import { config } from "./config.ts";
@@ -16,6 +17,7 @@ import {
 	syncLetterboxdRss,
 } from "./films.ts";
 import { refreshLibraryDetails } from "./library.ts";
+import { importExportedLists, refreshDueLists } from "./lists.ts";
 import { createLogger } from "./log.ts";
 import { isLoggedIn, simklConfigured, syncShows } from "./simkl.ts";
 
@@ -29,6 +31,7 @@ export interface FullSync {
 		matched: number;
 		films: number;
 	} | null;
+	lists: { added: number; refreshed: number; failed: number } | null;
 	errors: string[];
 	finishedAt: string;
 }
@@ -75,9 +78,21 @@ export async function syncAll(force = false): Promise<FullSync> {
 		errors.push(`Films: ${message(error)}`);
 	}
 
+	// Lists come after films so list items can reuse film TMDB matches.
+	let lists: FullSync["lists"] = null;
+	try {
+		const added = await importExportedLists();
+		lists = { added, ...(await refreshDueLists(force)) };
+		if (lists.failed) errors.push(`Lists: ${lists.failed} could not be read`);
+	} catch (error) {
+		log.error("SYNC_LISTS_FAILED", undefined, error);
+		errors.push(`Lists: ${message(error)}`);
+	}
+
 	const result: FullSync = {
 		tv,
 		films,
+		lists,
 		errors,
 		finishedAt: new Date().toISOString(),
 	};

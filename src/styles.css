@@ -520,3 +520,27 @@ body {
 	padding-left: 1.1rem;
 	list-style: disc;
 }
+
+/* A small TV / Film tag on a poster, so mixed rows read at a glance. */
+.kind-tag {
+	position: absolute;
+	top: 6px;
+	left: 6px;
+	padding: 1px 6px;
+	border-radius: 999px;
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	background: var(--panel-solid);
+	color: var(--text-2);
+	border: 1px solid var(--hairline);
+}
+
+.kind-film {
+	color: var(--accent-deep);
+}
+
+:root[data-theme="dark"] .kind-film {
+	color: var(--sea-to);
+}

@@ -139,3 +139,44 @@ test("a fresh export replaces the watchlist snapshot", () => {
 		["Stalker"],
 	);
 });
+
+test("parseListPage reads plain and ranked list items in order, across pages", async () => {
+	const { parseListPage } = await import("../src/server/lists.ts");
+	const html = `<meta property="og:title" content="MCU &amp; friends">
+<li class="posteritem numbered-list-item" data-item-slug="iron-man-2008" data-item-full-display-name="Iron Man (2008)" data-list-index="100"></li>
+<li class="posteritem" data-item-slug="the-incredible-hulk" data-item-full-display-name="The Incredible Hulk (2008)" data-list-index="101"></li>
+<li class="posteritem" data-item-slug="untitled" data-item-full-display-name="Untitled Project" data-list-index="102"></li>
+<a href="/u/list/mcu/page/2/">2</a><a href="/u/list/mcu/page/3/">3</a>`;
+	const page = parseListPage(html);
+	assert.equal(page.name, "MCU & friends");
+	assert.equal(page.lastPage, 3);
+	assert.deepEqual(
+		page.items.map((i) => [i.index, i.slug, i.name, i.year]),
+		[
+			[100, "iron-man-2008", "Iron Man", 2008],
+			[101, "the-incredible-hulk", "The Incredible Hulk", 2008],
+			[102, "untitled", "Untitled Project", null],
+		],
+	);
+});
+
+test("list progress counts watched films and finds the next one in order", async () => {
+	const { followList, listProgress } = await import("../src/server/lists.ts");
+	const id = followList("https://letterboxd.com/u/list/test/", "added");
+	const db = getDb();
+	db.prepare("UPDATE list SET name = 'Test' WHERE id = ?").run(id);
+	const add = db.prepare(
+		"INSERT INTO list_item (list_id, position, slug, name, year, tmdb_id) VALUES (?, ?, ?, ?, ?, ?)",
+	);
+	add.run(id, 1, "heat", "Heat", 1995, 949); // watched, matched by TMDB id
+	add.run(id, 2, "alien", "Alien", 1979, null); // watched, matched by title|year
+	add.run(id, 3, "ran", "Ran", 1985, null); // not watched -> next
+	add.run(id, 4, "stalker", "Stalker", 1979, null);
+	const l = listProgress().find((x) => x.id === id);
+	assert.equal(l?.watched, 2);
+	assert.equal(l?.total, 4);
+	assert.deepEqual(
+		{ ...l?.next },
+		{ position: 3, name: "Ran", year: 1985, tmdbId: null },
+	);
+});

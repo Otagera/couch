@@ -102,4 +102,42 @@ export const migrations: Array<{ name: string; sql: string }> = [
 		);
 		`,
 	},
+	{
+		name: "003_lists",
+		sql: `
+		-- Letterboxd lists the user follows: their own, ones they liked (from
+		-- the export), and ones pasted into Couch. Read from the public list
+		-- page, at most once a day.
+		CREATE TABLE list (
+			id         INTEGER PRIMARY KEY AUTOINCREMENT,
+			url        TEXT NOT NULL UNIQUE,
+			name       TEXT,
+			owner      TEXT,
+			origin     TEXT NOT NULL,        -- own | liked | added
+			items      INTEGER NOT NULL DEFAULT 0,
+			fetched_at TEXT,
+			error      TEXT,
+			hidden     INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL
+		);
+
+		CREATE TABLE list_item (
+			list_id  INTEGER NOT NULL REFERENCES list(id) ON DELETE CASCADE,
+			position INTEGER NOT NULL,
+			slug     TEXT NOT NULL,
+			name     TEXT NOT NULL,
+			year     INTEGER,
+			tmdb_id  INTEGER,
+			PRIMARY KEY (list_id, position)
+		);
+		CREATE INDEX list_item_tmdb ON list_item (tmdb_id);
+
+		-- Letterboxd film slug -> TMDB id, so a film is matched once across lists.
+		CREATE TABLE lb_slug (
+			slug       TEXT PRIMARY KEY,
+			tmdb_id    INTEGER,
+			matched_at TEXT NOT NULL
+		);
+		`,
+	},
 ];

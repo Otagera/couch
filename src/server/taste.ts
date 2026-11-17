@@ -124,6 +124,12 @@ export function historyText(): string {
 		)
 		.all() as { title: string; feedback: number; kind: string }[];
 
+	const lists = db
+		.prepare(
+			"SELECT name, items FROM list WHERE hidden = 0 AND name IS NOT NULL ORDER BY origin, name",
+		)
+		.all() as { name: string; items: number }[];
+
 	const notes = getNotes();
 
 	return [
@@ -154,6 +160,9 @@ export function historyText(): string {
 			: "",
 		wanted.length
 			? `### On their watchlist (most recently added)\n${wanted.map(film).join("\n")}`
+			: "",
+		lists.length
+			? `## Letterboxd lists they follow\n${lists.map((l) => `- ${l.name} (${l.items} films)`).join("\n")}`
 			: "",
 		feedback.length
 			? `## Feedback on earlier recommendations\n${feedback

@@ -5,13 +5,21 @@ fills in posters, air dates and where-to-watch from [TMDB](https://www.themovied
 and asks an LLM (via [OpenRouter](https://openrouter.ai)) to pick new shows for you,
 explaining each pick in terms of what you have already watched.
 
-- **Up next:** shows you are watching with the next episode, new episodes of shows
-  you finished, episodes airing in the next 30 days, and shows you have stalled on.
-- **Picks:** 8 recommendations with reasons and streaming providers. Mark each one
-  good or not for me; that feeds the next run.
+- **Home:** organised by what you'd do next, TV and films side by side. *Up next*
+  (shows in progress plus the next film in lists you're working through), *Ready
+  tonight* (new episodes and watchlist films on your services), *Your lists*
+  (progress), then coming soon, paused and long-break shows.
+- **Picks:** 8 TV or film recommendations with reasons and streaming providers. Mark
+  each one good or not for me; that feeds the next run.
+- **Lists:** Letterboxd lists you follow (your own and liked ones from the export,
+  plus any list URL you paste), with progress and what's next. Read from the public
+  list page at most once a day.
 - **Library:** your Simkl shows by status, with ratings and progress.
 - **Taste:** the written taste profile picks are based on, plus your own notes to
   correct it.
+
+Films come from your Letterboxd export plus your public diary RSS feed (set
+`LETTERBOXD_USERNAME`), so new watches show up without re-exporting.
 
 Couch only reads from Simkl; it never changes your Simkl library.
 
