@@ -179,15 +179,31 @@ export async function importExportedLists(): Promise<number> {
 		// Short links are resolved once and remembered, so each sync doesn't hit boxd.it.
 		const memo = `lists.short.${url}`;
 		const cached = seen.get(memo) as { value: string } | undefined;
-		let canonical = cached ? (JSON.parse(cached.value) as string) : null;
+		// A memo is either the canonical URL or {failedAt} for a dead/private
+		// link, which is retried weekly rather than on every sync.
+		const memoValue = cached
+			? (JSON.parse(cached.value) as string | { failedAt: string })
+			: null;
+		let canonical = typeof memoValue === "string" ? memoValue : null;
+		const failedRecently =
+			memoValue !== null &&
+			typeof memoValue === "object" &&
+			Date.now() - Date.parse(memoValue.failedAt) < 7 * 86_400_000;
 		if (!canonical) {
+			if (failedRecently) continue;
+			const save = db.prepare(
+				"INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?, ?, ?)",
+			);
 			try {
 				canonical = await canonicalListUrl(url);
-				db.prepare(
-					"INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?, ?, ?)",
-				).run(memo, JSON.stringify(canonical), new Date().toISOString());
+				save.run(memo, JSON.stringify(canonical), new Date().toISOString());
 				await sleep(PAGE_PAUSE_MS);
 			} catch (error) {
+				save.run(
+					memo,
+					JSON.stringify({ failedAt: new Date().toISOString() }),
+					new Date().toISOString(),
+				);
 				log.warn("LIST_SHORTLINK_FAILED", { url }, error);
 				continue;
 			}
