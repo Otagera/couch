@@ -116,6 +116,18 @@ test("replaceShows mirrors the library, including removals", () => {
 	assert.deepEqual(libraryStats(), { completed: 1 });
 });
 
+test("replaceShows skips rows without status and falls back to the slug for a missing title", () => {
+	const noTitle = raw(3, "x", "watching");
+	noTitle.show.title = undefined;
+	noTitle.show.ids.slug = "borgen";
+	const idsOnly = { show: { ids: { simkl: 4, slug: "lost" } } };
+	replaceShows([noTitle, idsOnly]);
+	assert.deepEqual(
+		listShows().map((s) => s.title),
+		["borgen"],
+	);
+});
+
 test("upNext separates active, stalled and new-episode shows", () => {
 	replaceShows([
 		raw(1, "Active", "watching", {

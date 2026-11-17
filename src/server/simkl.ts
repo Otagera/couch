@@ -269,12 +269,20 @@ export async function syncShows(force = false): Promise<SyncResult> {
 		return { changed: false, shows: count() };
 	}
 
-	// One call returns the whole TV library with ratings and progress; a
-	// personal library is far below Simkl's 20k-items-per-call cap.
-	const data = await get<{ shows?: RawShow[] }>("/sync/all-items/shows", {
-		extended: "ids_only",
-	});
-	replaceShows(data.shows ?? []);
+	// One call returns the whole TV library with ratings, progress and
+	// external ids (tmdb/imdb/tvdb); a personal library is far below Simkl's
+	// 20k-items-per-call cap. Do NOT pass extended=ids_only: despite the docs,
+	// it strips everything but the ids (no title, status or progress).
+	const data = await get<{ shows?: RawShow[] }>("/sync/all-items/shows");
+	const shows = data.shows ?? [];
+	// A wholesale replace must never run on a response that lost its fields,
+	// or it would wipe the library.
+	if (shows.length > 0 && shows.every((s) => !s.status)) {
+		throw new SimklError(
+			"Simkl returned shows without status; not replacing the library.",
+		);
+	}
+	replaceShows(shows);
 	setSetting(TV_ACTIVITY, tvActivity);
 	setSetting(LAST_SYNC, new Date().toISOString());
 	return { changed: true, shows: count() };
@@ -293,11 +301,12 @@ export function replaceShows(raw: RawShow[]): void {
 	try {
 		db.exec("DELETE FROM show");
 		for (const r of raw) {
-			const ids = r.show.ids;
+			const ids = r.show?.ids;
+			if (!ids?.simkl || !r.status) continue;
 			insert.run(
 				ids.simkl,
-				ids.slug,
-				r.show.title,
+				ids.slug ?? String(ids.simkl),
+				r.show.title ?? ids.slug ?? `Simkl #${ids.simkl}`,
 				r.show.year ?? null,
 				ids.tmdb ? Number(ids.tmdb) : null,
 				ids.imdb ?? null,
