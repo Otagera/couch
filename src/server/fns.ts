@@ -9,6 +9,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authEnabled } from "./auth/store.ts";
 import { config } from "./config.ts";
+import { getSetting } from "./db/index.ts";
 import { filmStats } from "./films.ts";
 import { getHome as buildHome } from "./home.ts";
 import { libraryStats } from "./library.ts";
@@ -167,6 +168,8 @@ export const ratePick = createServerFn({ method: "POST" })
 export const getTaste = createServerFn({ method: "GET" }).handler(async () => ({
 	profile: getProfile(),
 	notes: getNotes(),
+	films: filmStats(),
+	letterboxdImportedAt: getSetting<string>("letterboxd.imported_at"),
 }));
 
 export const saveNotes = createServerFn({ method: "POST" })

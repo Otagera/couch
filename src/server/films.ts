@@ -164,6 +164,7 @@ export function importLetterboxdCsv(force = false): {
 		throw error;
 	}
 	setSetting("letterboxd.csv_sig", sig);
+	setSetting("letterboxd.imported_at", new Date().toISOString());
 	const films = filmCount();
 	log.info("LETTERBOXD_CSV_IMPORTED", { films });
 	return { imported: true, films };

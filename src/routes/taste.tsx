@@ -12,7 +12,12 @@ export const Route = createFileRoute("/taste")({
 type BtnState = "idle" | "loading" | "success" | "error";
 
 function TastePage() {
-	const { profile, notes: savedNotes } = Route.useLoaderData();
+	const {
+		profile,
+		notes: savedNotes,
+		films,
+		letterboxdImportedAt,
+	} = Route.useLoaderData();
 	const router = useRouter();
 	const [notes, setNotes] = useState(savedNotes);
 	const [saveState, setSaveState] = useState<BtnState>("idle");
@@ -73,35 +78,38 @@ function TastePage() {
 				)}
 			</section>
 
-			<aside className="space-y-3">
-				<h2 className="text-[15px] font-semibold">Set it straight</h2>
-				<p className="text-[13px]" style={{ color: "var(--text-2)" }}>
-					Anything the profile gets wrong, or anything it cannot know. These
-					notes override what it infers from your history.
-				</p>
-				<textarea
-					className="field min-h-40 w-full p-3 text-[14px]"
-					placeholder="e.g. I'm done with true crime. I love a good heist. Nothing over 3 seasons unless it's exceptional."
-					value={notes}
-					onChange={(e) => setNotes(e.target.value)}
-				/>
-				<div className="flex gap-2">
-					<DrawablyButton
-						seed={501}
-						state={saveState}
-						onClick={save}
-						disabled={notes === savedNotes}
-					>
-						Save notes
-					</DrawablyButton>
-					<DrawablyButton
-						seed={502}
-						variant="solid"
-						state={rebuildState}
-						onClick={rebuild}
-					>
-						Rewrite profile
-					</DrawablyButton>
+			<aside className="space-y-8">
+				<LetterboxdUpload films={films} importedAt={letterboxdImportedAt} />
+				<div className="space-y-3">
+					<h2 className="text-[15px] font-semibold">Set it straight</h2>
+					<p className="text-[13px]" style={{ color: "var(--text-2)" }}>
+						Anything the profile gets wrong, or anything it cannot know. These
+						notes override what it infers from your history.
+					</p>
+					<textarea
+						className="field min-h-40 w-full p-3 text-[14px]"
+						placeholder="e.g. I'm done with true crime. I love a good heist. Nothing over 3 seasons unless it's exceptional."
+						value={notes}
+						onChange={(e) => setNotes(e.target.value)}
+					/>
+					<div className="flex gap-2">
+						<DrawablyButton
+							seed={501}
+							state={saveState}
+							onClick={save}
+							disabled={notes === savedNotes}
+						>
+							Save notes
+						</DrawablyButton>
+						<DrawablyButton
+							seed={502}
+							variant="solid"
+							state={rebuildState}
+							onClick={rebuild}
+						>
+							Rewrite profile
+						</DrawablyButton>
+					</div>
 				</div>
 			</aside>
 		</div>
@@ -150,5 +158,86 @@ function inline(s: string): React.ReactNode {
 		) : (
 			part
 		),
+	);
+}
+
+/** Upload the Letterboxd export zip (Settings > Import & Export on Letterboxd). */
+function LetterboxdUpload({
+	films,
+	importedAt,
+}: {
+	films: { watched: number; watchlist: number; rated: number };
+	importedAt: string | null;
+}) {
+	const router = useRouter();
+	const [state, setState] = useState<BtnState>("idle");
+	const [message, setMessage] = useState<string | null>(null);
+
+	async function upload(file: File) {
+		setState("loading");
+		setMessage(null);
+		try {
+			const res = await fetch("/api/letterboxd/upload", {
+				method: "POST",
+				headers: { "Content-Type": "application/zip" },
+				body: file,
+			});
+			const body = (await res.json()) as {
+				error?: string;
+				stats?: { watched: number; watchlist: number };
+			};
+			if (!res.ok)
+				throw new Error(body.error ?? `Upload failed (${res.status})`);
+			setState("success");
+			setMessage(
+				`Imported: ${body.stats?.watched ?? 0} watched, ${body.stats?.watchlist ?? 0} on your watchlist. Posters and lists are filling in now; this takes a few minutes the first time.`,
+			);
+			await router.invalidate();
+		} catch (e) {
+			setState("error");
+			setMessage(e instanceof Error ? e.message : String(e));
+		}
+	}
+
+	return (
+		<div className="space-y-2">
+			<h2 className="text-[15px] font-semibold">Letterboxd export</h2>
+			<p className="text-[13px]" style={{ color: "var(--text-2)" }}>
+				{films.watched
+					? `${films.watched} watched, ${films.rated} rated, ${films.watchlist} on your watchlist${importedAt ? `. Export imported ${relativeTime(importedAt)}` : ""}.`
+					: "No film history yet."}{" "}
+				Your diary RSS keeps recent watches current; re-upload now and then for
+				ratings, likes and watchlist changes.
+			</p>
+			<p className="text-[12px]" style={{ color: "var(--text-3)" }}>
+				On Letterboxd: Settings → Import &amp; Export → Export your data. Upload
+				the .zip as is.
+			</p>
+			<label className="btn inline-flex h-9 cursor-pointer items-center px-3 text-[14px]">
+				{state === "loading" ? "Uploading..." : "Upload export (.zip)"}
+				<input
+					type="file"
+					accept=".zip,application/zip"
+					className="sr-only"
+					disabled={state === "loading"}
+					onChange={(e) => {
+						const f = e.target.files?.[0];
+						if (f) upload(f);
+						e.target.value = "";
+					}}
+				/>
+			</label>
+			{message && (
+				<p
+					className="text-[13px]"
+					style={{
+						color:
+							state === "error" ? "var(--drawably-error)" : "var(--text-2)",
+					}}
+				>
+					{message}
+				</p>
+			)}
+		</div>
 	);
 }

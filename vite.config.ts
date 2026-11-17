@@ -27,6 +27,12 @@ export default defineConfig({
 					),
 				},
 				{
+					route: "/api/letterboxd/upload",
+					handler: fileURLToPath(
+						new URL("./src/server/letterboxdUpload.ts", import.meta.url),
+					),
+				},
+				{
 					route: "/api/media/import",
 					handler: fileURLToPath(
 						new URL("./src/server/media/importHandler.ts", import.meta.url),
