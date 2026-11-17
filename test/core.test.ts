@@ -43,6 +43,7 @@ function raw(
 		rating: number;
 		watched: number;
 		total: number;
+		notAired: number;
 		lastWatchedAt: string;
 		tmdb: string;
 	}> = {},
@@ -57,7 +58,7 @@ function raw(
 		next_to_watch: null,
 		watched_episodes_count: extra.watched ?? 0,
 		total_episodes_count: extra.total ?? 0,
-		not_aired_episodes_count: 0,
+		not_aired_episodes_count: extra.notAired ?? 0,
 		show: {
 			title,
 			year: 2020,
@@ -128,7 +129,7 @@ test("replaceShows skips rows without status and falls back to the slug for a mi
 	);
 });
 
-test("upNext separates active, stalled and new-episode shows", () => {
+test("upNext separates active, paused, long-break and new-episode shows", () => {
 	replaceShows([
 		raw(1, "Active", "watching", {
 			watched: 3,
@@ -140,9 +141,20 @@ test("upNext separates active, stalled and new-episode shows", () => {
 			total: 8,
 			lastWatchedAt: ago(20),
 		}),
-		raw(3, "Stalled", "watching", {
+		raw(3, "Paused", "watching", {
 			watched: 4,
 			total: 9,
+			lastWatchedAt: ago(90),
+		}),
+		raw(8, "Long break", "watching", {
+			watched: 2,
+			total: 9,
+			lastWatchedAt: ago(400),
+		}),
+		raw(9, "Caught up, more to air", "watching", {
+			watched: 8,
+			total: 10,
+			notAired: 2,
 			lastWatchedAt: ago(90),
 		}),
 		raw(4, "Caught up", "watching", {
@@ -168,8 +180,12 @@ test("upNext separates active, stalled and new-episode shows", () => {
 		["Active", "Older active"],
 	);
 	assert.deepEqual(
-		u.stalled.map((s) => s.title),
-		["Stalled"],
+		u.paused.map((s) => s.title),
+		["Paused"],
+	);
+	assert.deepEqual(
+		u.longBreak.map((s) => s.title),
+		["Long break"],
 	);
 	assert.deepEqual(
 		u.newEpisodes.map((s) => s.title),

@@ -24,7 +24,8 @@ function UpNextPage() {
 		!upNext.continueWatching.length &&
 		!upNext.newEpisodes.length &&
 		!upNext.comingSoon.length &&
-		!upNext.stalled.length;
+		!upNext.paused.length &&
+		!upNext.longBreak.length;
 
 	if (empty) {
 		return (
@@ -47,13 +48,13 @@ function UpNextPage() {
 				title="Continue watching"
 				shows={upNext.continueWatching}
 				meta={(s) => `Next ${s.nextToWatch ?? "episode"}`}
-				detail={(s) => `${s.watched}/${s.total} episodes`}
+				detail={(s) => `${s.watched}/${s.aired} episodes`}
 			/>
 			<Shelf
 				title="New episodes"
 				hint="Shows you finished or paused that have aired more"
 				shows={upNext.newEpisodes}
-				meta={(s) => `${s.total - s.watched} new`}
+				meta={(s) => `${s.behind} new`}
 				detail={(s) => (s.status === "hold" ? "On hold" : "Was completed")}
 			/>
 			<Shelf
@@ -61,15 +62,24 @@ function UpNextPage() {
 				hint="Next episode airs within 30 days"
 				shows={upNext.comingSoon}
 				meta={(s) => untilDate(s.nextAirDate)}
-				detail={(s) => s.providers[0] ?? ""}
+				detail={(s) => (s.behind ? `${s.behind} behind` : "Caught up")}
 			/>
 			<Shelf
-				title="Stalled"
-				hint="Watching, but nothing in a while. Pick it back up, or drop it on Simkl."
-				shows={upNext.stalled}
-				meta={(s) => `Stopped at ${s.lastWatched ?? "?"}`}
-				detail={(s) => relativeTime(s.lastWatchedAt)}
+				title="Paused"
+				hint="Nothing in a few weeks. They'll keep."
+				shows={upNext.paused}
+				meta={(s) => `${s.behind} to go`}
+				detail={(s) => `Last watched ${relativeTime(s.lastWatchedAt)}`}
 				muted
+			/>
+			<Shelf
+				title="On a long break"
+				hint="Over six months since an episode"
+				shows={upNext.longBreak}
+				meta={(s) => `${s.behind} to go`}
+				detail={(s) => `Last watched ${relativeTime(s.lastWatchedAt)}`}
+				muted
+				collapsed
 			/>
 		</div>
 	);
@@ -82,6 +92,7 @@ function Shelf({
 	meta,
 	detail,
 	muted = false,
+	collapsed = false,
 }: {
 	title: string;
 	hint?: string;
@@ -89,11 +100,15 @@ function Shelf({
 	meta: (s: LibraryShow) => string;
 	detail: (s: LibraryShow) => string;
 	muted?: boolean;
+	/** Render inside a closed <details>; the heading is the toggle. */
+	collapsed?: boolean;
 }) {
 	if (!shows.length) return null;
+	const Wrapper = collapsed ? "details" : "section";
+	const Heading = collapsed ? "summary" : "div";
 	return (
-		<section>
-			<div className="mb-4 flex items-baseline gap-3">
+		<Wrapper>
+			<Heading className="mb-4 flex cursor-pointer items-baseline gap-3">
 				<h2 className="text-[17px] font-semibold">{title}</h2>
 				<span className="tnum text-[12px]" style={{ color: "var(--text-3)" }}>
 					{shows.length}
@@ -106,7 +121,7 @@ function Shelf({
 						{hint}
 					</span>
 				)}
-			</div>
+			</Heading>
 			<div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
 				{shows.map((s) => (
 					<a
@@ -120,7 +135,7 @@ function Shelf({
 							title={s.title}
 							src={s.poster}
 							subtitle={s.year ? String(s.year) : null}
-							progress={s.total ? s.watched / s.total : undefined}
+							progress={s.aired ? s.watched / s.aired : undefined}
 							dim={muted}
 						/>
 						<div className="mt-2 truncate text-[14px] font-medium">
@@ -141,6 +156,6 @@ function Shelf({
 					</a>
 				))}
 			</div>
-		</section>
+		</Wrapper>
 	);
 }

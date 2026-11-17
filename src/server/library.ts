@@ -19,8 +19,13 @@ export interface LibraryShow {
 	lastWatched: string | null;
 	nextToWatch: string | null;
 	watched: number;
+	/** Simkl's total, which includes episodes that have not aired yet. */
 	total: number;
 	notAired: number;
+	/** Episodes that have aired: total - notAired. */
+	aired: number;
+	/** Aired episodes not yet watched. */
+	behind: number;
 	simklUrl: string;
 	poster: string | null;
 	genres: string[];
@@ -47,6 +52,7 @@ interface ShowRow {
 
 function toLibraryShow(r: ShowRow): LibraryShow {
 	const t = r.tmdb_id ? cachedShow(r.tmdb_id) : null;
+	const aired = Math.max(0, r.total_episodes - r.not_aired);
 	return {
 		simklId: r.simkl_id,
 		tmdbId: r.tmdb_id,
@@ -60,6 +66,8 @@ function toLibraryShow(r: ShowRow): LibraryShow {
 		watched: r.watched_episodes,
 		total: r.total_episodes,
 		notAired: r.not_aired,
+		aired,
+		behind: Math.max(0, aired - r.watched_episodes),
 		simklUrl: simklUrl(r.simkl_id, r.slug),
 		poster: posterUrl(t?.poster ?? null),
 		genres: t?.genres ?? [],
@@ -107,8 +115,10 @@ export async function refreshLibraryDetails(): Promise<number> {
 export interface UpNext {
 	/** Watching, with an episode ready, most recently watched first. */
 	continueWatching: LibraryShow[];
-	/** Watching, but nothing watched for a while. */
-	stalled: LibraryShow[];
+	/** Behind, nothing watched in 6 weeks to 6 months. Usually comes back. */
+	paused: LibraryShow[];
+	/** Behind, nothing watched in over 6 months. Neutral, not a dislike. */
+	longBreak: LibraryShow[];
 	/** Finished or paused shows that have new aired episodes. */
 	newEpisodes: LibraryShow[];
 	/** Shows you follow with an episode airing in the next 30 days. */
@@ -118,6 +128,7 @@ export interface UpNext {
 export function upNext(now = Date.now()): UpNext {
 	const all = listShows();
 	const stalledBefore = now - config.stalledAfterDays * 86_400_000;
+	const longBreakBefore = now - config.longBreakAfterDays * 86_400_000;
 	const soon = now + 30 * 86_400_000;
 	const watchedAt = (s: LibraryShow) =>
 		s.lastWatchedAt ? Date.parse(s.lastWatchedAt) : 0;
@@ -125,14 +136,23 @@ export function upNext(now = Date.now()): UpNext {
 		watchedAt(b) - watchedAt(a);
 
 	const watching = all.filter((s) => s.status === "watching");
-	const hasUnwatched = (s: LibraryShow) => s.total > 0 && s.watched < s.total;
+	// Unaired episodes are not "unwatched": only count what has aired.
+	const hasUnwatched = (s: LibraryShow) => s.behind > 0;
 
 	return {
 		continueWatching: watching
 			.filter((s) => hasUnwatched(s) && watchedAt(s) >= stalledBefore)
 			.sort(byRecent),
-		stalled: watching
-			.filter((s) => hasUnwatched(s) && watchedAt(s) < stalledBefore)
+		paused: watching
+			.filter(
+				(s) =>
+					hasUnwatched(s) &&
+					watchedAt(s) < stalledBefore &&
+					watchedAt(s) >= longBreakBefore,
+			)
+			.sort(byRecent),
+		longBreak: watching
+			.filter((s) => hasUnwatched(s) && watchedAt(s) < longBreakBefore)
 			.sort(byRecent),
 		newEpisodes: all
 			.filter(

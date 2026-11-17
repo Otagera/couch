@@ -21,7 +21,7 @@ const USAGE = `Couch: what to watch next
   login            Connect Simkl (enter a code at simkl.com/pin)
   logout           Forget the Simkl login
   sync [--force]   Pull your TV library from Simkl and refresh TMDB details
-  up-next          Continue watching, stalled shows, new episodes, coming soon
+  up-next          Continue watching, new episodes, coming soon, paused shows
   taste [--force]  Show (or rebuild) your taste profile
   picks [--new]    Show the latest picks, or generate new ones (uses OpenRouter)
   status           What is configured and synced`;
@@ -61,7 +61,7 @@ async function main(): Promise<void> {
 			const u = upNext();
 			const show = (
 				title: string,
-				rows: ReturnType<typeof upNext>["stalled"],
+				rows: ReturnType<typeof upNext>["paused"],
 				fmt: (s: (typeof rows)[number]) => string,
 			) => {
 				if (!rows.length) return;
@@ -72,20 +72,26 @@ async function main(): Promise<void> {
 				"Continue watching",
 				u.continueWatching,
 				(s) =>
-					`${s.title}: next ${s.nextToWatch ?? "?"} (${s.watched}/${s.total})`,
+					`${s.title}: next ${s.nextToWatch ?? "?"} (${s.watched}/${s.aired})`,
 			);
 			show(
 				"New episodes",
 				u.newEpisodes,
-				(s) => `${s.title}: ${s.total - s.watched} unwatched`,
+				(s) => `${s.title}: ${s.behind} unwatched`,
 			);
-			show("Coming soon", u.comingSoon, (s) => `${s.nextAirDate}  ${s.title}`);
 			show(
-				"Stalled",
-				u.stalled,
+				"Coming soon",
+				u.comingSoon,
 				(s) =>
-					`${s.title}: last watched ${s.lastWatchedAt?.slice(0, 10) ?? "?"}, at ${s.lastWatched ?? "?"}`,
+					`${s.nextAirDate}  ${s.title}${s.behind ? ` (${s.behind} behind)` : ""}`,
 			);
+			const away = (s: (typeof u.paused)[number]) =>
+				`${s.title}: ${s.behind} to go, last watched ${s.lastWatchedAt?.slice(0, 10) ?? "?"}`;
+			show("Paused", u.paused, away);
+			if (u.longBreak.length)
+				console.log(
+					`\nOn a long break: ${u.longBreak.length} shows (over 6 months)`,
+				);
 			return;
 		}
 

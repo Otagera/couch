@@ -40,6 +40,8 @@ export const config = {
 
 	/** Days without an episode before a "watching" show counts as stalled. */
 	stalledAfterDays: Number(env("COUCH_STALLED_DAYS") ?? 42),
+	/** Days without an episode before a paused show counts as a long break. */
+	longBreakAfterDays: Number(env("COUCH_LONG_BREAK_DAYS") ?? 180),
 };
 
 export function requireConfig<K extends keyof typeof config>(

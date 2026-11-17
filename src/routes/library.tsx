@@ -108,7 +108,7 @@ function LibraryPage() {
 								title={s.title}
 								src={s.poster}
 								subtitle={s.year ? String(s.year) : null}
-								progress={s.total ? s.watched / s.total : undefined}
+								progress={s.aired ? s.watched / s.aired : undefined}
 								dim={s.status === "dropped"}
 							/>
 							<div className="mt-2 truncate text-[14px] font-medium">

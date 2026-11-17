@@ -47,7 +47,7 @@ export function historyText(): string {
 	const db = getDb();
 	const shows = db
 		.prepare(
-			"SELECT title, year, tmdb_id, status, user_rating, watched_episodes, total_episodes FROM show ORDER BY user_rating DESC NULLS LAST, title",
+			"SELECT title, year, tmdb_id, status, user_rating, watched_episodes, total_episodes, not_aired FROM show ORDER BY user_rating DESC NULLS LAST, title",
 		)
 		.all() as {
 		title: string;
@@ -57,6 +57,7 @@ export function historyText(): string {
 		user_rating: number | null;
 		watched_episodes: number;
 		total_episodes: number;
+		not_aired: number;
 	}[];
 
 	const line = (s: (typeof shows)[number]) => {
@@ -64,7 +65,7 @@ export function historyText(): string {
 		const rating = s.user_rating ? ` ${s.user_rating}/10` : "";
 		const progress =
 			s.status === "dropped" || s.status === "hold"
-				? ` (stopped at ${s.watched_episodes}/${s.total_episodes} eps)`
+				? ` (stopped at ${s.watched_episodes}/${s.total_episodes - s.not_aired} eps)`
 				: "";
 		return `- ${s.title}${s.year ? ` (${s.year})` : ""}${rating}${progress}${genres ? ` [${genres}]` : ""}`;
 	};
