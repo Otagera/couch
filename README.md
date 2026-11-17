@@ -1,100 +1,113 @@
-# Letterboxd CLI
+# Couch
 
-A powerful, local-first movie recommendation and watchlist management tool that integrates your Letterboxd history with TMDb data. It uses a hybrid approach with semantic search and a detailed taste profile to provide nuanced movie suggestions.
+What to watch next. Couch reads your TV library from [Simkl](https://simkl.com),
+fills in posters, air dates and where-to-watch from [TMDB](https://www.themoviedb.org),
+and asks an LLM (via [OpenRouter](https://openrouter.ai)) to pick new shows for you,
+explaining each pick in terms of what you have already watched.
 
-## Features
+- **Up next:** shows you are watching with the next episode, new episodes of shows
+  you finished, episodes airing in the next 30 days, and shows you have stalled on.
+- **Picks:** 8 recommendations with reasons and streaming providers. Mark each one
+  good or not for me; that feeds the next run.
+- **Library:** your Simkl shows by status, with ratings and progress.
+- **Taste:** the written taste profile picks are based on, plus your own notes to
+  correct it.
 
-- **Hybrid Personalized Recommendations:** Get movie suggestions based on a sophisticated analysis of your highly-rated movies, combining semantic search on movie overviews with a detailed taste profile of your favorite genres, actors, and directors.
-- **Automatic Setup:** No need to manually edit `.env` files. The CLI will guide you through the initial configuration on your first run.
-- **Direct Data Sync:** Keep your local data up-to-date by syncing directly with your Letterboxd account, fetching your diary, ratings, and watchlist (via CSV or Scraping).
-- **Watch Availability:** Check where movies are streaming in your country based on your specific subscriptions.
-- **Watchlist Tracking:** Monitor your Letterboxd watchlist for availability changes on streaming platforms.
-- **Random Movie Suggestions:** Get a random movie suggestion with details and reasons based on your taste profile, intelligently filtered to exclude movies you've already seen.
-- **Local-First:** All your data and movie embeddings stay on your machine in a local SQLite and ChromaDB "sidecar" instance.
+Couch only reads from Simkl; it never changes your Simkl library.
 
-## Usage (The Easy Way)
+## How picks work
 
-You can run the CLI instantly from any directory using `npx`:
+1. **Taste profile** (cheap model, rebuilt only when your history changes). One call
+   reads your Simkl shows (ratings, completed, on hold, dropped), your Letterboxd
+   film ratings and reviews, your notes, and your feedback on past picks, and writes
+   a short profile.
+2. **Candidates** (no LLM). TMDB recommendations for your best-rated shows,
+   well-rated shows on your streaming services, and this week's trending. Anything
+   in your library or rejected before is dropped, then ~60 are kept.
+3. **The pick** (strong model). One call gets the profile and the candidates and
+   returns 8 picks with reasons. A run costs a few cents and only happens when you
+   click **New picks** (or run `picks --new`).
 
-```bash
-npx github:Otagera/my-movies-cli
+## Setup
+
+Needs Node 24+.
+
+```sh
+npm install
+cp .env.example .env   # fill it in; see the comments
 ```
 
-### First Run:
-1.  **Configuration:** The CLI will prompt you for your **TMDb API Key** and **Country Code**.
-2.  **Data Sync:** Select **"Sync data with Letterboxd"** -> **"CSV files"**. 
-    *   *Note: Ensure you have a `data/` folder in your current directory containing your Letterboxd export CSVs (`diary.csv`, `watchlist.csv`, `ratings.csv`).*
+You need:
 
----
+- **Simkl client ID:** create an app at https://simkl.com/settings/developer/ with
+  type **TV / devices / CLI** (that type allows the code-based login).
+- **TMDB API key:** https://www.themoviedb.org/settings/api
+- **OpenRouter API key:** https://openrouter.ai/keys
+- Optional: your **Letterboxd export** (Settings > Import & Export) unzipped into
+  `data/`, so film taste feeds the profile.
+- Optional: a **Chatterbox** app name and secret to ship logs there.
 
-## How the Recommendation Engine Works
+## Running
 
-The recommendation engine is a hybrid system that combines the power of modern semantic search with a classic, detailed taste profile analysis.
-
-### High-Level Overview
-
-The process can be visualized as a funnel. We start by finding a broad set of movies that are thematically similar to what you like (semantic search), and then we meticulously re-rank that set based on the specific details (genres, actors, directors) that make up your unique taste.
-
-```mermaid
-graph TD
-    A[Your Highly Rated Movies] --> B{Stage 1: Semantic Search};
-    B --> C[Top 50 Thematically Similar Movies];
-    C --> D{Stage 2: Detailed Scoring & Re-ranking};
-    D --> E[Re-ranked List of Candidates];
-    E --> F{Stage 3: Filter by Availability};
-    F --> G[Top 5 Recommendations on Your Services];
+```sh
+npm run dev                  # web UI on http://localhost:3000
+npm run cli -- login         # connect Simkl from the terminal instead
+npm run cli -- sync          # pull your library
+npm run cli -- up-next
+npm run cli -- picks --new   # generate picks (OpenRouter)
+npm run cli -- taste
+npm run cli -- status
 ```
 
-### Stage 1: Semantic Search & Taste Profile Embedding
-We generate embeddings for each of your highly-rated movies using a sentence-transformer model (`Xenova/all-MiniLM-L6-v2`). We then create a "Taste Profile Embedding" by averaging these vectors and use it to search ChromaDB for the top 50 thematically similar candidates.
+The server also syncs in the background every `COUCH_SYNC_HOURS` (default 6). An
+unchanged library costs one Simkl API call, well inside the free 500 a day.
 
-### Stage 2: Detailed Scoring & Re-ranking
-We build a detailed profile of your preferences by counting genres, actors, and directors from your history. Each candidate from Stage 1 is then scored against this profile. The final hybrid score ensures recommendations are both thematically relevant and feature the specific elements you enjoy.
+## Development
 
----
+```sh
+npm test            # node:test, runs from TypeScript source
+npm run typecheck
+npm run check       # biome lint + format check
+npm run format
+```
 
-## Manual Setup (Development)
+Layout:
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/Otagera/my-movies-cli.git
-    cd my-movies-cli
-    ```
+- `src/server/` is the core: Simkl, TMDB, SQLite (`node:sqlite`), taste profile,
+  picks, logging. It imports only `node:` builtins and sibling modules, so the CLI
+  runs with no build step and no `node_modules`.
+- `src/server/fns.ts` holds the TanStack Start server functions: the UI's whole API.
+- `src/routes/` and `src/components/` are the UI. The theme is the Sunset-vault
+  token set shared with the comics app.
 
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
+## Deploy
 
-3.  **Run in Dev Mode:**
-    ```bash
-    npm run dev
-    ```
+Same pattern as the comics stack: push to `main`, GitHub Actions tests and builds
+the image, pushes it to GHCR, then calls Coolify's deploy webhook.
 
-## Offline / Restricted Network Setup
+One-time setup:
 
-If you are on a network that blocks access to Hugging Face, you can use a local model cache:
+1. In Coolify: **New Resource > Docker Compose**, pointed at this repository. Leave
+   the domain field empty; routing comes from the labels in `docker-compose.yml`
+   (`couch.otagera.xyz`).
+2. Set the environment variables from `.env.example`, including `COUCH_AUTH_USER`
+   and `COUCH_AUTH_PASSWORD` (the app is open without them), and
+   `COUCH_IMAGE=ghcr.io/otagera/couch:latest`.
+3. DNS: point `couch.otagera.xyz` at the host, proxying off.
+4. Repository secrets: `COOLIFY_WEBHOOK_URL` and `COOLIFY_TOKEN`, as in comics.
+5. Optional: copy your Letterboxd CSVs to `/mnt/HC_Volume_106816620/couch/letterboxd/`.
 
-1.  **Download the model files:**
-    ```bash
-    git clone https://huggingface.co/Xenova/all-MiniLM-L6-v2 ./.cache/transformers/Xenova/all-MiniLM-L6-v2
-    ```
+Then open the site and click **Connect Simkl**.
 
-2.  **Enable Local Model Loading:**
-    In your `.env` file, set:
-    ```bash
-    HUGGINGFACE_USE_LOCAL_MODELS=true
-    HUGGINGFACE_MODEL_PATH=./.cache/transformers
-    ```
+Maintenance CLI inside the container:
 
-## Troubleshooting
+```sh
+docker exec $(docker ps -qf label=couch.role=web) node src/server/cli.ts status
+```
 
-- **ChromaDB Issues:** The CLI starts ChromaDB automatically. If you encounter connection errors, ensure port `8000` is not being used by another application.
-- **Scraping Capability:** Scraping requires `puppeteer`. If you wish to use web scraping instead of CSVs, you may need to install it manually: `npm install puppeteer`.
+## Data and attribution
 
-## Architecture
+TV data from Simkl and TMDB. This product uses the TMDB API but is not endorsed or
+certified by TMDB.
 
-- **SQLite:** Local metadata storage.
-- **ChromaDB:** Vector store for semantic search.
-- **Inquirer.js:** Interactive terminal interface.
-- **TMDb API:** Real-time movie and streaming data source.
+The previous Letterboxd movie CLI lives at the `v1-movies-cli` tag.

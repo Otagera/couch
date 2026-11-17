@@ -9,6 +9,9 @@ export default defineConfig({
 	resolve: { tsconfigPaths: true },
 	plugins: [
 		nitro({
+			plugins: [
+				fileURLToPath(new URL("./src/server/scheduler.ts", import.meta.url)),
+			],
 			handlers: [
 				// Middleware runs ahead of every route, pages and server functions
 				// alike, so auth cannot be bypassed.
