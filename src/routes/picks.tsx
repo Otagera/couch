@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { DrawablyButton } from "drawably/react";
 import { useState } from "react";
 import { Poster } from "../components/Poster.tsx";
@@ -6,21 +6,34 @@ import { relativeTime } from "../lib/format.ts";
 import { generatePicks, getPicks, getStatus, ratePick } from "../server/fns.ts";
 import type { Pick } from "../server/picks.ts";
 
+type Kind = "tv" | "movie";
+
 export const Route = createFileRoute("/picks")({
+	// Optional so plain links to /picks need no search params; TV is default.
+	validateSearch: (s: Record<string, unknown>): { kind?: Kind } =>
+		s.kind === "movie" ? { kind: "movie" } : {},
+	loaderDeps: ({ search }) => ({ kind: search.kind ?? "tv" }),
+	loader: async ({ deps }) => ({
+		status: await getStatus(),
+		picks: await getPicks({ data: { kind: deps.kind } }),
+	}),
 	component: PicksPage,
-	loader: async () => ({ status: await getStatus(), picks: await getPicks() }),
 });
 
 type BtnState = "idle" | "loading" | "success" | "error";
 
 function PicksPage() {
 	const { status, picks } = Route.useLoaderData();
+	const kind: Kind = Route.useSearch().kind ?? "tv";
 	const router = useRouter();
 	const [state, setState] = useState<BtnState>("idle");
 	const [error, setError] = useState<string | null>(null);
 
 	const missing = [
-		!status.simklConnected && "connect Simkl",
+		kind === "tv" && !status.simklConnected && "connect Simkl",
+		kind === "movie" &&
+			!status.films.watched &&
+			"add your Letterboxd export or set LETTERBOXD_USERNAME, then sync",
 		!status.tmdbConfigured && "set TMDB_API_KEY",
 		!status.openRouterConfigured && "set OPENROUTER_API_KEY",
 	].filter(Boolean);
@@ -28,7 +41,7 @@ function PicksPage() {
 	async function refresh() {
 		setState("loading");
 		setError(null);
-		const res = await generatePicks();
+		const res = await generatePicks({ data: { kind } });
 		if (res.ok) {
 			setState("success");
 			await router.invalidate();
@@ -43,11 +56,24 @@ function PicksPage() {
 		<div>
 			<div className="mb-6 flex flex-wrap items-end gap-4">
 				<div>
+					<div className="mb-2 flex gap-1">
+						{(["tv", "movie"] as const).map((k) => (
+							<Link
+								key={k}
+								to="/picks"
+								search={k === "movie" ? { kind: k } : {}}
+								className="nav-link"
+								data-status={k === kind ? "active" : undefined}
+							>
+								{k === "tv" ? "TV" : "Films"}
+							</Link>
+						))}
+					</div>
 					<h1 className="text-[22px] font-semibold">Picks</h1>
 					<p className="text-[13px]" style={{ color: "var(--text-3)" }}>
 						{picks.createdAt
 							? `Chosen ${relativeTime(picks.createdAt)} by ${picks.model}`
-							: "Shows chosen for you from your taste profile."}
+							: `${kind === "tv" ? "Shows" : "Films"} chosen for you from your taste profile.`}
 					</p>
 				</div>
 				<div className="ml-auto flex items-center gap-3">
@@ -106,7 +132,7 @@ function PickCard({ pick }: { pick: Pick }) {
 		});
 	}
 
-	const tmdbUrl = `https://www.themoviedb.org/tv/${pick.tmdbId}`;
+	const tmdbUrl = pick.tmdbUrl;
 
 	return (
 		<article className="panel flex gap-4 p-4 sm:gap-6 sm:p-5">
@@ -132,15 +158,7 @@ function PickCard({ pick }: { pick: Pick }) {
 						{pick.title}
 					</a>
 					<span className="text-[13px]" style={{ color: "var(--text-3)" }}>
-						{[
-							pick.year,
-							pick.seasons
-								? `${pick.seasons} season${pick.seasons === 1 ? "" : "s"}`
-								: null,
-							pick.status,
-						]
-							.filter(Boolean)
-							.join(" · ")}
+						{[pick.year, pick.detail].filter(Boolean).join(" · ")}
 					</span>
 				</div>
 				<p

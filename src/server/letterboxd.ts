@@ -57,7 +57,7 @@ export function parseCsv(text: string): Record<string, string>[] {
 	);
 }
 
-function read(file: string): Record<string, string>[] {
+export function readCsv(file: string): Record<string, string>[] {
 	const path = join(config.letterboxdDir, file);
 	return existsSync(path) ? parseCsv(readFileSync(path, "utf8")) : [];
 }
@@ -70,13 +70,13 @@ const toRating = (r: Record<string, string>): FilmRating => ({
 });
 
 export function filmRatings(): FilmRating[] {
-	return read("ratings.csv")
+	return readCsv("ratings.csv")
 		.map(toRating)
 		.filter((r) => r.name && r.rating > 0);
 }
 
 export function filmReviews(): FilmReview[] {
-	return read("reviews.csv")
+	return readCsv("reviews.csv")
 		.map((r) => ({ ...toRating(r), review: (r.Review ?? "").trim() }))
 		.filter((r) => r.name && r.review);
 }

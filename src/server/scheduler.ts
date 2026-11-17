@@ -10,7 +10,6 @@
 
 import { definePlugin } from "nitro";
 import { createLogger, flushLogs } from "./log.ts";
-import { isLoggedIn, simklConfigured } from "./simkl.ts";
 import { syncAll } from "./sync.ts";
 
 const log = createLogger("scheduler");
@@ -21,7 +20,7 @@ export default definePlugin((nitroApp) => {
 	let running = false;
 
 	const tick = async () => {
-		if (running || !simklConfigured() || !isLoggedIn()) return;
+		if (running) return;
 		running = true;
 		try {
 			await syncAll();

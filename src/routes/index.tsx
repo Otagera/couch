@@ -25,7 +25,8 @@ function UpNextPage() {
 		!upNext.newEpisodes.length &&
 		!upNext.comingSoon.length &&
 		!upNext.paused.length &&
-		!upNext.longBreak.length;
+		!upNext.longBreak.length &&
+		!upNext.watchlistStreaming.length;
 
 	if (empty) {
 		return (
@@ -64,6 +65,7 @@ function UpNextPage() {
 				meta={(s) => untilDate(s.nextAirDate)}
 				detail={(s) => (s.behind ? `${s.behind} behind` : "Caught up")}
 			/>
+			<FilmShelf films={upNext.watchlistStreaming} />
 			<Shelf
 				title="Paused"
 				hint="Nothing in a few weeks. They'll keep."
@@ -82,6 +84,61 @@ function UpNextPage() {
 				collapsed
 			/>
 		</div>
+	);
+}
+
+type StreamingFilm = Awaited<
+	ReturnType<typeof getUpNext>
+>["watchlistStreaming"][number];
+
+/** Films from the Letterboxd watchlist that are on the viewer's services. */
+function FilmShelf({ films }: { films: StreamingFilm[] }) {
+	if (!films.length) return null;
+	return (
+		<section>
+			<div className="mb-4 flex items-baseline gap-3">
+				<h2 className="text-[17px] font-semibold">
+					From your watchlist, streaming now
+				</h2>
+				<span className="tnum text-[12px]" style={{ color: "var(--text-3)" }}>
+					{films.length}
+				</span>
+			</div>
+			<div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+				{films.map((f) => (
+					<a
+						key={f.tmdbId}
+						href={f.url}
+						target="_blank"
+						rel="noreferrer"
+						className="group block"
+					>
+						<Poster
+							title={f.title}
+							src={f.poster}
+							subtitle={f.year ? String(f.year) : null}
+						/>
+						<div className="mt-2 truncate text-[14px] font-medium">
+							{f.title}
+						</div>
+						<div
+							className="truncate text-[12px]"
+							style={{ color: "var(--accent-deep)" }}
+						>
+							{f.providers.join(", ")}
+						</div>
+						<div
+							className="tnum text-[11px]"
+							style={{ color: "var(--text-3)" }}
+						>
+							{[f.year, f.runtime ? `${f.runtime} min` : null]
+								.filter(Boolean)
+								.join(" · ")}
+						</div>
+					</a>
+				))}
+			</div>
+		</section>
 	);
 }
 

@@ -66,4 +66,40 @@ export const migrations: Array<{ name: string; sql: string }> = [
 		CREATE INDEX pick_tmdb ON pick (tmdb_id);
 		`,
 	},
+	{
+		name: "002_films",
+		sql: `
+		-- Picks are now either TV or films; TMDB ids overlap between the two.
+		ALTER TABLE pick_run ADD COLUMN kind TEXT NOT NULL DEFAULT 'tv';
+
+		-- One row per film the user has watched, rated, liked or wants to watch.
+		-- Letterboxd has no API: rows come from the CSV export (full history,
+		-- watchlist) and the public diary RSS feed (recent entries). Keyed by
+		-- normalised "title|year" because the two sources share no other id.
+		CREATE TABLE film (
+			key            TEXT PRIMARY KEY,
+			name           TEXT NOT NULL,
+			year           INTEGER,
+			tmdb_id        INTEGER,
+			letterboxd_uri TEXT,
+			rating         REAL,
+			liked          INTEGER NOT NULL DEFAULT 0,
+			watched        INTEGER NOT NULL DEFAULT 0,
+			watched_at     TEXT,
+			rewatches      INTEGER NOT NULL DEFAULT 0,
+			watchlist      INTEGER NOT NULL DEFAULT 0,
+			watchlist_at   TEXT,
+			review         TEXT,
+			tmdb_lookup_at TEXT,
+			updated_at     TEXT NOT NULL
+		);
+		CREATE INDEX film_tmdb ON film (tmdb_id);
+
+		CREATE TABLE tmdb_movie (
+			tmdb_id    INTEGER PRIMARY KEY,
+			details    TEXT NOT NULL,
+			fetched_at TEXT NOT NULL
+		);
+		`,
+	},
 ];

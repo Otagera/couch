@@ -57,7 +57,7 @@ export interface TmdbListItem {
 	originalLanguage: string;
 }
 
-async function tmdb<T>(
+export async function tmdb<T>(
 	path: string,
 	params: Record<string, string | number> = {},
 ): Promise<T> {
@@ -200,12 +200,20 @@ export async function getShows(
 
 // ------------------------------------------------------------- discovery
 
-interface RawList {
+/**
+ * TV and movie list results differ only in field names (name/title,
+ * first_air_date/release_date). Both map onto TmdbListItem, so the picks
+ * pipeline treats them alike; for films, `name` is the title and
+ * `firstAirDate` the release date.
+ */
+export interface RawList {
 	results: Array<{
 		id: number;
-		name: string;
+		name?: string;
+		title?: string;
 		overview: string;
-		first_air_date: string;
+		first_air_date?: string;
+		release_date?: string;
 		genre_ids: number[];
 		vote_average: number;
 		vote_count: number;
@@ -214,12 +222,12 @@ interface RawList {
 	}>;
 }
 
-const listItems = (raw: RawList): TmdbListItem[] =>
+export const listItems = (raw: RawList): TmdbListItem[] =>
 	raw.results.map((r) => ({
 		id: r.id,
-		name: r.name,
+		name: r.name ?? r.title ?? "",
 		overview: r.overview,
-		firstAirDate: r.first_air_date || null,
+		firstAirDate: r.first_air_date || r.release_date || null,
 		genreIds: r.genre_ids,
 		voteAverage: r.vote_average,
 		voteCount: r.vote_count,
@@ -239,7 +247,7 @@ export async function trending(): Promise<TmdbListItem[]> {
 
 /** Well-rated shows on the user's own services. */
 export async function discoverOnMyServices(page = 1): Promise<TmdbListItem[]> {
-	const providerIds = await myProviderIds();
+	const providerIds = await myProviderIds("tv");
 	if (providerIds.length === 0) return [];
 	return listItems(
 		await tmdb<RawList>("/discover/tv", {
@@ -253,25 +261,29 @@ export async function discoverOnMyServices(page = 1): Promise<TmdbListItem[]> {
 	);
 }
 
-let providerCache: { id: number; name: string }[] | null = null;
+export type MediaKind = "tv" | "movie";
 
-export async function availableProviders(): Promise<
-	{ id: number; name: string }[]
-> {
-	if (providerCache) return providerCache;
+const providerCache = new Map<MediaKind, { id: number; name: string }[]>();
+
+export async function availableProviders(
+	kind: MediaKind = "tv",
+): Promise<{ id: number; name: string }[]> {
+	const cached = providerCache.get(kind);
+	if (cached) return cached;
 	const raw = await tmdb<{
 		results: { provider_id: number; provider_name: string }[];
-	}>("/watch/providers/tv", { watch_region: config.countryCode });
-	providerCache = raw.results.map((p) => ({
+	}>(`/watch/providers/${kind}`, { watch_region: config.countryCode });
+	const list = raw.results.map((p) => ({
 		id: p.provider_id,
 		name: p.provider_name,
 	}));
-	return providerCache;
+	providerCache.set(kind, list);
+	return list;
 }
 
-async function myProviderIds(): Promise<number[]> {
+export async function myProviderIds(kind: MediaKind): Promise<number[]> {
 	if (config.services.length === 0) return [];
-	return (await availableProviders())
+	return (await availableProviders(kind))
 		.filter((p) => config.services.includes(p.name.toLowerCase()))
 		.map((p) => p.id);
 }

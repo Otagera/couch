@@ -8,9 +8,10 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { config } from "./config.ts";
+import { filmStats, watchlistStreaming } from "./films.ts";
 import { libraryStats, listShows, upNext } from "./library.ts";
 import { createLogger } from "./log.ts";
-import { latestPicks, runPicks, setFeedback } from "./picks.ts";
+import { latestPicks, type MediaKind, runPicks, setFeedback } from "./picks.ts";
 import {
 	isLoggedIn,
 	type LoginPoll,
@@ -59,6 +60,8 @@ export const getStatus = createServerFn({ method: "GET" }).handler(
 		openRouterConfigured: Boolean(config.openRouterApiKey),
 		lastSync: lastFullSync(),
 		stats: libraryStats(),
+		films: filmStats(),
+		letterboxdRss: Boolean(config.letterboxdUsername),
 		services: config.services,
 		country: config.countryCode,
 	}),
@@ -98,8 +101,8 @@ export const runSync = createServerFn({ method: "POST" })
 
 // --------------------------------------------------------------- library
 
-export const getUpNext = createServerFn({ method: "GET" }).handler(async () =>
-	upNext(),
+export const getUpNext = createServerFn({ method: "GET" }).handler(
+	async () => ({ ...upNext(), watchlistStreaming: watchlistStreaming() }),
 );
 
 export const getLibrary = createServerFn({ method: "GET" })
@@ -115,13 +118,17 @@ export const getLibrary = createServerFn({ method: "GET" })
 
 // ----------------------------------------------------------------- picks
 
-export const getPicks = createServerFn({ method: "GET" }).handler(async () =>
-	latestPicks(),
-);
+const kindOf = (d: { kind?: string } | undefined): { kind: MediaKind } => ({
+	kind: d?.kind === "movie" ? "movie" : "tv",
+});
 
-export const generatePicks = createServerFn({ method: "POST" }).handler(() =>
-	guarded("PICKS_FAILED", () => runPicks()),
-);
+export const getPicks = createServerFn({ method: "GET" })
+	.validator(kindOf)
+	.handler(async ({ data }) => latestPicks(data.kind));
+
+export const generatePicks = createServerFn({ method: "POST" })
+	.validator(kindOf)
+	.handler(({ data }) => guarded("PICKS_FAILED", () => runPicks(data.kind)));
 
 export const ratePick = createServerFn({ method: "POST" })
 	.validator(

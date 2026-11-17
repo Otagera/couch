@@ -26,6 +26,8 @@ export const config = {
 	letterboxdDir: resolve(env("COUCH_LETTERBOXD_DIR") ?? "data"),
 
 	simklClientId: env("SIMKL_CLIENT_ID"),
+	/** Public Letterboxd username, for the diary RSS feed. */
+	letterboxdUsername: env("LETTERBOXD_USERNAME"),
 
 	tmdbApiKey: env("TMDB_API_KEY"),
 	countryCode: (env("STREAMING_COUNTRY_CODE") ?? "US").toUpperCase(),

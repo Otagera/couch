@@ -9,9 +9,10 @@
 
 import { config } from "./config.ts";
 import { closeDb } from "./db/index.ts";
+import { filmStats } from "./films.ts";
 import { libraryStats, upNext } from "./library.ts";
 import { createLogger, flushLogs } from "./log.ts";
-import { latestPicks, runPicks } from "./picks.ts";
+import { dryRunPicks, latestPicks, runPicks } from "./picks.ts";
 import { isLoggedIn, login, logout } from "./simkl.ts";
 import { syncAll } from "./sync.ts";
 import { buildProfile, getProfile } from "./taste.ts";
@@ -23,7 +24,10 @@ const USAGE = `Couch: what to watch next
   sync [--force]   Pull your TV library from Simkl and refresh TMDB details
   up-next          Continue watching, new episodes, coming soon, paused shows
   taste [--force]  Show (or rebuild) your taste profile
-  picks [--new]    Show the latest picks, or generate new ones (uses OpenRouter)
+  films            Film history stats (Letterboxd export + diary RSS)
+  picks [--movies] Show the latest TV (or film) picks
+        --new      Generate new picks (one OpenRouter call)
+        --dry-run  Print exactly what would be sent to the model; no call
   status           What is configured and synced`;
 
 async function main(): Promise<void> {
@@ -48,12 +52,21 @@ async function main(): Promise<void> {
 
 		case "sync": {
 			const r = await syncAll(flag("--force"));
-			console.log(
-				r.changed
-					? `Synced ${r.shows} shows from Simkl.`
-					: `No changes on Simkl (${r.shows} shows). Refreshed TMDB details for ${r.detailsRefreshed}.`,
-			);
-			console.log(libraryStats());
+			if (r.tv) {
+				console.log(
+					r.tv.changed
+						? `TV: synced ${r.tv.shows} shows from Simkl.`
+						: `TV: no changes on Simkl (${r.tv.shows} shows).`,
+					libraryStats(),
+				);
+			} else console.log("TV: Simkl not connected (npm run cli -- login).");
+			if (r.films) {
+				console.log(
+					`Films: ${r.films.csvImported ? "imported the Letterboxd export, " : ""}${r.films.rssEntries} diary entries from RSS, ${r.films.matched} newly matched to TMDB.`,
+					filmStats(),
+				);
+			}
+			for (const e of r.errors) console.log(`Warning: ${e}`);
 			return;
 		}
 
@@ -109,17 +122,38 @@ async function main(): Promise<void> {
 			return;
 		}
 
+		case "films": {
+			console.log(filmStats());
+			return;
+		}
+
 		case "picks": {
+			const kind = flag("--movies") ? "movie" : "tv";
+			if (flag("--dry-run")) {
+				const d = await dryRunPicks(kind);
+				for (const m of d.messages)
+					console.log(`===== ${m.role} =====\n${m.content}\n`);
+				console.log(
+					`----- ${d.candidates} candidates, ~${d.approxInputTokens} input tokens, model ${d.model}. Nothing was sent.`,
+				);
+				if (d.profileStale)
+					console.log(
+						"Note: your history changed since the taste profile was written; a real run rewrites it first (npm run cli -- taste --force to see it).",
+					);
+				return;
+			}
 			if (flag("--new")) {
 				console.log("Choosing picks (this takes a minute)...");
-				const r = await runPicks();
+				const r = await runPicks(kind);
 				console.log(
 					`Done: ${r.candidates} candidates considered${r.costUsd != null ? `, $${r.costUsd.toFixed(3)}` : ""}.`,
 				);
 			}
-			const { picks, createdAt } = latestPicks();
+			const { picks, createdAt } = latestPicks(kind);
 			if (!picks.length) {
-				console.log("No picks yet. Run: npm run cli -- picks --new");
+				console.log(
+					`No picks yet. Run: npm run cli -- picks --new${kind === "movie" ? " --movies" : ""}`,
+				);
 				return;
 			}
 			console.log(`\nPicks from ${createdAt?.slice(0, 10)}:\n`);
@@ -129,7 +163,11 @@ async function main(): Promise<void> {
 				);
 				console.log(`   ${p.reason}\n`);
 			}
-			console.log("TV data from Simkl (simkl.com) and TMDB.");
+			console.log(
+				kind === "tv"
+					? "TV data from Simkl (simkl.com) and TMDB."
+					: "Film data from Letterboxd and TMDB.",
+			);
 			return;
 		}
 
@@ -146,6 +184,10 @@ async function main(): Promise<void> {
 			);
 			console.log(`Database: ${config.dbPath}`);
 			console.log("Library:", libraryStats());
+			console.log(
+				`Letterboxd RSS: ${config.letterboxdUsername ? "yes" : "no"}, films:`,
+				filmStats(),
+			);
 			return;
 		}
 
