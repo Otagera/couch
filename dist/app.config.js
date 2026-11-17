@@ -17,6 +17,9 @@ const ConfigSchema = zod_1.z.object({
         username: zod_1.z.string().min(1, "Letterboxd username is required"),
         useScraping: zod_1.z.boolean().default(true),
     }),
+    simkl: zod_1.z.object({
+        clientId: zod_1.z.string().optional(),
+    }),
     streaming: zod_1.z.object({
         countryCode: zod_1.z
             .string()
@@ -61,6 +64,9 @@ const loadConfig = () => {
         letterboxd: {
             username: process.env.LETTERBOXD_USERNAME,
             useScraping: process.env.LETTERBOXD_USE_SCRAPING?.toLowerCase() === "true",
+        },
+        simkl: {
+            clientId: process.env.SIMKL_CLIENT_ID || undefined,
         },
         streaming: {
             countryCode: process.env.STREAMING_COUNTRY_CODE,

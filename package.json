@@ -17,7 +17,8 @@
     "format": "npx @biomejs/biome format --write ./src",
     "lint": "npx @biomejs/biome lint ./src",
     "check": "npx @biomejs/biome check ./src",
-    "build": "tsc && node -e \"const fs=require('fs'); const p='dist/index.js'; let c=fs.readFileSync(p,'utf8'); if(!c.startsWith('#!')){fs.writeFileSync(p,'#!/usr/bin/env node\\n'+c); fs.chmodSync(p,'755');}\""
+    "build": "tsc && node -e \"const fs=require('fs'); const p='dist/index.js'; let c=fs.readFileSync(p,'utf8'); if(!c.startsWith('#!')){fs.writeFileSync(p,'#!/usr/bin/env node\\n'+c); fs.chmodSync(p,'755');}\"",
+    "simkl": "ts-node src/simkl-cli.ts"
   },
   "keywords": [],
   "author": "",

@@ -14,6 +14,9 @@ const ConfigSchema = z.object({
 		username: z.string().min(1, "Letterboxd username is required"),
 		useScraping: z.boolean().default(true),
 	}),
+	simkl: z.object({
+		clientId: z.string().optional(),
+	}),
 	streaming: z.object({
 		countryCode: z
 			.string()
@@ -62,6 +65,9 @@ export const loadConfig = (): AppConfig => {
 			username: process.env.LETTERBOXD_USERNAME,
 			useScraping:
 				process.env.LETTERBOXD_USE_SCRAPING?.toLowerCase() === "true",
+		},
+		simkl: {
+			clientId: process.env.SIMKL_CLIENT_ID || undefined,
 		},
 		streaming: {
 			countryCode: process.env.STREAMING_COUNTRY_CODE,
