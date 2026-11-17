@@ -323,6 +323,25 @@ export async function refreshWatchlistDetails(): Promise<number> {
 	return (await getMovies(rows.map((r) => r.tmdb_id))).size;
 }
 
+/**
+ * Posters for watched films (Library). Where a watched film streams no longer
+ * matters, so these details are kept for 90 days instead of 7.
+ */
+export async function refreshWatchedDetails(): Promise<number> {
+	const rows = getDb()
+		.prepare(
+			"SELECT tmdb_id FROM film WHERE watched = 1 AND watchlist = 0 AND tmdb_id IS NOT NULL",
+		)
+		.all() as { tmdb_id: number }[];
+	return (
+		await getMovies(
+			rows.map((r) => r.tmdb_id),
+			8,
+			90 * 86_400_000,
+		)
+	).size;
+}
+
 // ----------------------------------------------------------------- queries
 
 export function filmCount(): number {

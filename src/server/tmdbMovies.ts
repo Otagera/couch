@@ -117,6 +117,7 @@ export function cachedMovie(tmdbId: number): TmdbMovie | null {
 export async function getMovies(
 	ids: number[],
 	concurrency = 8,
+	maxAgeMs = DETAILS_TTL_MS,
 ): Promise<Map<number, TmdbMovie>> {
 	const out = new Map<number, TmdbMovie>();
 	const queue = [...new Set(ids)];
@@ -124,7 +125,7 @@ export async function getMovies(
 		Array.from({ length: concurrency }, async () => {
 			for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
 				try {
-					out.set(id, await getMovie(id));
+					out.set(id, await getMovie(id, maxAgeMs));
 				} catch (error) {
 					log.warn("TMDB_MOVIE_FETCH_FAILED", { tmdbId: id }, error);
 				}

@@ -10,7 +10,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { config } from "./config.ts";
 import { filmStats } from "./films.ts";
 import { getHome as buildHome } from "./home.ts";
-import { libraryStats, listShows } from "./library.ts";
+import { libraryStats } from "./library.ts";
+import {
+	type KindFilter,
+	libraryView,
+	SHELVES,
+	type Shelf,
+} from "./libraryView.ts";
 import {
 	canonicalListUrl,
 	followList,
@@ -26,7 +32,6 @@ import {
 	type LoginPoll,
 	logout,
 	pollLogin,
-	type ShowStatus,
 	simklConfigured,
 	startLogin,
 } from "./simkl.ts";
@@ -36,14 +41,6 @@ import { posterUrl } from "./tmdb.ts";
 import { getMovies } from "./tmdbMovies.ts";
 
 const log = createLogger("web");
-
-const STATUSES: ShowStatus[] = [
-	"watching",
-	"plantowatch",
-	"hold",
-	"completed",
-	"dropped",
-];
 
 /** Turn thrown errors into a message the UI can show, and log them. */
 async function guarded<T>(
@@ -117,15 +114,13 @@ export const getHome = createServerFn({ method: "GET" }).handler(() =>
 );
 
 export const getLibrary = createServerFn({ method: "GET" })
-	.validator((d: { status?: string } | undefined) => ({
-		status: STATUSES.includes(d?.status as ShowStatus)
-			? (d?.status as ShowStatus)
-			: undefined,
+	.validator((d: { shelf?: string; kind?: string } | undefined) => ({
+		shelf: (SHELVES.includes(d?.shelf as Shelf) ? d?.shelf : "all") as Shelf,
+		kind: (["tv", "film"].includes(d?.kind ?? "")
+			? d?.kind
+			: "all") as KindFilter,
 	}))
-	.handler(async ({ data }) => ({
-		shows: listShows(data.status),
-		stats: libraryStats(),
-	}));
+	.handler(async ({ data }) => libraryView(data.shelf, data.kind));
 
 // ----------------------------------------------------------------- picks
 
@@ -136,6 +131,14 @@ const kindOf = (d: { kind?: string } | undefined): { kind: MediaKind } => ({
 export const getPicks = createServerFn({ method: "GET" })
 	.validator(kindOf)
 	.handler(async ({ data }) => latestPicks(data.kind));
+
+/** Both kinds at once, for the default "All" view. */
+export const getAllPicks = createServerFn({ method: "GET" }).handler(
+	async () => ({
+		tv: latestPicks("tv"),
+		movie: latestPicks("movie"),
+	}),
+);
 
 export const generatePicks = createServerFn({ method: "POST" })
 	.validator(kindOf)

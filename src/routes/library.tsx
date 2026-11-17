@@ -1,75 +1,122 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Poster } from "../components/Poster.tsx";
-import { STATUS_LABEL } from "../lib/format.ts";
 import { getLibrary } from "../server/fns.ts";
 
-const TABS = [
-	"all",
-	"watching",
-	"plantowatch",
-	"hold",
-	"completed",
-	"dropped",
+const SHELVES = [
+	["all", "All"],
+	["in-progress", "In progress"],
+	["want", "Want to watch"],
+	["finished", "Finished"],
+	["paused", "Paused"],
+	["dropped", "Dropped"],
 ] as const;
-type Tab = (typeof TABS)[number];
+type Shelf = (typeof SHELVES)[number][0];
+
+const KINDS = [
+	["all", "TV & films"],
+	["tv", "TV"],
+	["film", "Films"],
+] as const;
+type Kind = (typeof KINDS)[number][0];
+
+interface Search {
+	shelf?: Shelf;
+	kind?: Kind;
+}
 
 export const Route = createFileRoute("/library")({
-	validateSearch: (s: Record<string, unknown>): { status: Tab } => ({
-		status: TABS.includes(s.status as Tab) ? (s.status as Tab) : "all",
+	validateSearch: (s: Record<string, unknown>): Search => ({
+		...(SHELVES.some(([k]) => k === s.shelf && k !== "all")
+			? { shelf: s.shelf as Shelf }
+			: {}),
+		...(s.kind === "tv" || s.kind === "film" ? { kind: s.kind } : {}),
 	}),
-	loaderDeps: ({ search }) => ({ status: search.status }),
-	loader: ({ deps }) =>
-		getLibrary({
-			data: { status: deps.status === "all" ? undefined : deps.status },
-		}),
+	loaderDeps: ({ search }) => ({
+		shelf: search.shelf ?? "all",
+		kind: search.kind ?? "all",
+	}),
+	loader: ({ deps }) => getLibrary({ data: deps }),
 	component: LibraryPage,
 });
 
-type Sort = "title" | "rating" | "recent";
+type Sort = "recent" | "rating" | "title";
 
 function LibraryPage() {
-	const { shows, stats } = Route.useLoaderData();
-	const { status } = Route.useSearch();
+	const { items, counts } = Route.useLoaderData();
+	const search = Route.useSearch();
+	const shelf: Shelf = search.shelf ?? "all";
+	const kind: Kind = search.kind ?? "all";
 	const [query, setQuery] = useState("");
 	const [sort, setSort] = useState<Sort>("recent");
-
-	const total = Object.values(stats).reduce((a, b) => a + (b ?? 0), 0);
 
 	const visible = useMemo(() => {
 		const q = query.trim().toLowerCase();
 		const rows = q
-			? shows.filter((s) => s.title.toLowerCase().includes(q))
-			: [...shows];
+			? items.filter((i) => i.title.toLowerCase().includes(q))
+			: [...items];
 		if (sort === "rating")
-			rows.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-		if (sort === "recent")
-			rows.sort((a, b) =>
-				(b.lastWatchedAt ?? "").localeCompare(a.lastWatchedAt ?? ""),
-			);
+			rows.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+		else if (sort === "recent")
+			rows.sort((a, b) => (b.activeAt ?? "").localeCompare(a.activeAt ?? ""));
+		else rows.sort((a, b) => a.title.localeCompare(b.title));
 		return rows;
-	}, [shows, query, sort]);
+	}, [items, query, sort]);
+
+	// Keep the other filter when switching one; omit defaults from the URL.
+	const to = (next: Partial<Search>): Search => {
+		const s = { shelf, kind, ...next };
+		return {
+			...(s.shelf !== "all" ? { shelf: s.shelf } : {}),
+			...(s.kind !== "all" ? { kind: s.kind } : {}),
+		};
+	};
 
 	return (
 		<div>
-			<div className="mb-5 flex flex-wrap items-center gap-2">
-				{TABS.map((t) => (
+			<div
+				className="mb-3 flex flex-wrap gap-1"
+				role="tablist"
+				aria-label="Media"
+			>
+				{KINDS.map(([k, label]) => (
 					<Link
-						key={t}
+						key={k}
 						to="/library"
-						search={{ status: t }}
-						className="nav-link"
-						data-status={t === status ? "active" : undefined}
+						search={to({ kind: k })}
+						className="tab"
+						role="tab"
+						aria-selected={k === kind}
 					>
-						{t === "all" ? "All" : STATUS_LABEL[t]}
-						<span
-							className="tnum ml-1.5 text-[11px]"
-							style={{ color: "var(--text-3)" }}
-						>
-							{t === "all" ? total : (stats[t] ?? 0)}
-						</span>
+						{label}
 					</Link>
 				))}
+			</div>
+			<div
+				className="mb-5 flex flex-wrap gap-1"
+				role="tablist"
+				aria-label="Shelf"
+			>
+				{SHELVES.map(([s, label]) =>
+					counts[s] || s === "all" ? (
+						<Link
+							key={s}
+							to="/library"
+							search={to({ shelf: s })}
+							className="tab"
+							role="tab"
+							aria-selected={s === shelf}
+						>
+							{label}
+							<span
+								className="tnum ml-1.5 text-[11px]"
+								style={{ color: "var(--text-3)" }}
+							>
+								{counts[s]}
+							</span>
+						</Link>
+					) : null,
+				)}
 			</div>
 			<div className="mb-6 flex flex-wrap gap-3">
 				<input
@@ -84,7 +131,7 @@ function LibraryPage() {
 					onChange={(e) => setSort(e.target.value as Sort)}
 					aria-label="Sort"
 				>
-					<option value="recent">Recently watched</option>
+					<option value="recent">Recent activity</option>
 					<option value="rating">Your rating</option>
 					<option value="title">Title</option>
 				</select>
@@ -92,44 +139,58 @@ function LibraryPage() {
 
 			{visible.length === 0 ? (
 				<p className="text-[14px]" style={{ color: "var(--text-3)" }}>
-					No shows here.
+					Nothing here.
 				</p>
 			) : (
 				<div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-					{visible.map((s) => (
+					{visible.slice(0, 600).map((i) => (
 						<a
-							key={s.simklId}
-							href={s.simklUrl}
+							key={i.key}
+							href={i.url}
 							target="_blank"
 							rel="noreferrer"
 							className="group block"
 						>
-							<Poster
-								title={s.title}
-								src={s.poster}
-								subtitle={s.year ? String(s.year) : null}
-								progress={s.aired ? s.watched / s.aired : undefined}
-								dim={s.status === "dropped"}
-							/>
+							<div className="relative">
+								<Poster
+									title={i.title}
+									src={i.poster}
+									subtitle={i.year ? String(i.year) : null}
+									progress={i.progress}
+									dim={i.shelf === "dropped"}
+								/>
+								{kind === "all" && (
+									<span className={`kind-tag kind-${i.kind}`}>
+										{i.kind === "tv" ? "TV" : "Film"}
+									</span>
+								)}
+							</div>
 							<div className="mt-2 truncate text-[14px] font-medium">
-								{s.title}
+								{i.title}
 							</div>
 							<div
-								className="tnum flex justify-between text-[11px]"
+								className="tnum flex justify-between gap-2 text-[11px]"
 								style={{ color: "var(--text-3)" }}
 							>
-								<span>
-									{status === "all" ? STATUS_LABEL[s.status] : s.year}
-								</span>
-								{s.rating ? (
-									<span style={{ color: "var(--accent-deep)" }}>
-										{s.rating}/10
+								<span className="truncate">{i.note ?? i.year}</span>
+								{i.rating && (
+									<span
+										className="shrink-0"
+										style={{ color: "var(--accent-deep)" }}
+									>
+										{i.rating}
 									</span>
-								) : null}
+								)}
 							</div>
 						</a>
 					))}
 				</div>
+			)}
+			{visible.length > 600 && (
+				<p className="mt-4 text-[13px]" style={{ color: "var(--text-3)" }}>
+					Showing 600 of {visible.length}. Filter or pick a shelf to narrow it
+					down.
+				</p>
 			)}
 		</div>
 	);

@@ -12,6 +12,7 @@ import { config } from "./config.ts";
 import { getSetting, setSetting } from "./db/index.ts";
 import {
 	importLetterboxdCsv,
+	refreshWatchedDetails,
 	refreshWatchlistDetails,
 	resolveTmdbIds,
 	syncLetterboxdRss,
@@ -67,6 +68,7 @@ export async function syncAll(force = false): Promise<FullSync> {
 		}
 		const { matched } = await resolveTmdbIds();
 		await refreshWatchlistDetails();
+		await refreshWatchedDetails();
 		films = {
 			csvImported: csv.imported,
 			rssEntries,
