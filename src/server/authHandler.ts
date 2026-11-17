@@ -21,7 +21,14 @@ import {
 
 // /api/media/ checks the scanner token itself.
 const OPEN_PREFIXES = ["/auth/", "/assets/", "/api/media/"];
-const OPEN_PATHS = new Set(["/login", "/favicon.ico", "/robots.txt"]);
+const OPEN_PATHS = new Set([
+	"/login",
+	"/favicon.ico",
+	"/favicon.svg",
+	"/favicon-32.png",
+	"/apple-touch-icon.png",
+	"/robots.txt",
+]);
 // Vite's dev server serves modules from these; they never exist in production.
 const DEV_PREFIXES = ["/@", "/src/", "/node_modules/", "/__"];
 

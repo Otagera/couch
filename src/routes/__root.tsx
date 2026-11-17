@@ -21,8 +21,17 @@ export const Route = createRootRoute({
 			{ title: "Couch" },
 			{ name: "description", content: "What to watch next" },
 			{ name: "theme-color", content: "#12968d" },
+			{ name: "apple-mobile-web-app-title", content: "Couch" },
 		],
 		links: [
+			{ rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+			{
+				rel: "icon",
+				href: "/favicon-32.png",
+				type: "image/png",
+				sizes: "32x32",
+			},
+			{ rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
 			{ rel: "preconnect", href: "https://fonts.googleapis.com" },
 			{
 				rel: "preconnect",
