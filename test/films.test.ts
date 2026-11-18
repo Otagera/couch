@@ -158,6 +158,25 @@ test("parseListPage reads plain and ranked list items in order, across pages", a
 			[102, "untitled", "Untitled Project", null],
 		],
 	);
+	assert.equal(page.ranked, true);
+	assert.equal(
+		parseListPage(html.replace(" numbered-list-item", "")).ranked,
+		false,
+	);
+});
+
+test("pinning a list is stored and reported by listProgress", async () => {
+	const { followList, listProgress, pinList } = await import(
+		"../src/server/lists.ts"
+	);
+	const id = followList("https://letterboxd.com/u/list/pin-me/", "added");
+	const find = () => listProgress().find((x) => x.id === id);
+	assert.equal(find()?.pinned, false);
+	assert.equal(find()?.ranked, false);
+	pinList(id, true);
+	assert.equal(find()?.pinned, true);
+	pinList(id, false);
+	assert.equal(find()?.pinned, false);
 });
 
 test("list progress counts watched films and finds the next one in order", async () => {

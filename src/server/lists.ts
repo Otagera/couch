@@ -69,6 +69,8 @@ export interface ParsedPage {
 	name: string | null;
 	items: { index: number; slug: string; name: string; year: number | null }[];
 	lastPage: number;
+	/** Letterboxd shows numbers on the list: it's an order, not a collection. */
+	ranked: boolean;
 }
 
 const attr = (html: string, name: string) => {
@@ -117,6 +119,7 @@ export function parseListPage(html: string): ParsedPage {
 		name: ogTitle ? decodeHtml(ogTitle[1]).trim() : null,
 		items,
 		lastPage: Math.max(1, ...pages),
+		ranked: /<li class="posteritem[^"]*\bnumbered-list-item\b/.test(html),
 	};
 }
 
@@ -146,6 +149,13 @@ export function followList(
 	return (
 		db.prepare("SELECT id FROM list WHERE url = ?").get(url) as { id: number }
 	).id;
+}
+
+/** Mark a list as one you're working through, so it feeds Up next. */
+export function pinList(id: number, pinned: boolean): void {
+	getDb()
+		.prepare("UPDATE list SET pinned = ? WHERE id = ?")
+		.run(pinned ? 1 : 0, id);
 }
 
 export function unfollowList(id: number): void {
@@ -263,11 +273,12 @@ export async function refreshList(id: number): Promise<void> {
 				insert.run(id, i + 1, it.slug, it.name, it.year, known);
 			});
 			db.prepare(
-				"UPDATE list SET name = ?, owner = ?, items = ?, fetched_at = ?, error = NULL WHERE id = ?",
+				"UPDATE list SET name = ?, owner = ?, items = ?, ranked = ?, fetched_at = ?, error = NULL WHERE id = ?",
 			).run(
 				first.name,
 				m ? m[1] : null,
 				items.length,
+				first.ranked ? 1 : 0,
 				new Date().toISOString(),
 				id,
 			);
@@ -325,7 +336,7 @@ async function matchListItems(id: number): Promise<void> {
 	).run(id);
 }
 
-/** Refresh every followed list not read in the last day. Failures are per list. */
+/** Refresh every followed list not read within REFRESH_MS. Failures are per list. */
 export async function refreshDueLists(
 	force = false,
 ): Promise<{ refreshed: number; failed: number }> {
@@ -357,6 +368,10 @@ export interface ListProgress {
 	name: string;
 	owner: string | null;
 	origin: string;
+	/** Numbered on Letterboxd: a watch order. */
+	ranked: boolean;
+	/** You marked it as one you're working through. */
+	pinned: boolean;
 	total: number;
 	watched: number;
 	/** First film in list order not yet watched. */
@@ -376,7 +391,7 @@ export function listProgress(): ListProgress[] {
 	const db = getDb();
 	const lists = db
 		.prepare(
-			"SELECT id, url, name, owner, origin, items, fetched_at, error FROM list WHERE hidden = 0",
+			"SELECT id, url, name, owner, origin, ranked, pinned, items, fetched_at, error FROM list WHERE hidden = 0",
 		)
 		.all() as {
 		id: number;
@@ -384,6 +399,8 @@ export function listProgress(): ListProgress[] {
 		name: string | null;
 		owner: string | null;
 		origin: string;
+		ranked: number;
+		pinned: number;
 		items: number;
 		fetched_at: string | null;
 		error: string | null;
@@ -442,6 +459,8 @@ export function listProgress(): ListProgress[] {
 					l.name ?? l.url.match(LIST_URL)?.[2]?.replace(/-/g, " ") ?? "List",
 				owner: l.owner,
 				origin: l.origin,
+				ranked: Boolean(l.ranked),
+				pinned: Boolean(l.pinned),
 				total: rows.length,
 				watched,
 				next,

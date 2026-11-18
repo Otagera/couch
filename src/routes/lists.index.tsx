@@ -138,6 +138,18 @@ function ListGroup({ title, lists }: { title: string; lists: ListProgress[] }) {
 							style={{ color: "var(--text-3)" }}
 						>
 							<span className="chip">{ORIGIN[l.origin] ?? l.origin}</span>
+							{(l.pinned || l.ranked) && (
+								<span
+									className={`chip ${l.pinned ? "chip-accent" : ""}`}
+									title={
+										l.pinned
+											? "You're working through this: its next film is in Up next"
+											: "A numbered watch order: its next film shows in Up next while you're watching from it"
+									}
+								>
+									{l.pinned ? "Working through" : "Ranked"}
+								</span>
+							)}
 							{l.owner && <span>by {l.owner}</span>}
 							<span>· read {relativeTime(l.fetchedAt)}</span>
 							<button

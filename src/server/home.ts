@@ -59,14 +59,19 @@ export async function getHome() {
 		.toISOString()
 		.slice(0, 10);
 
-	// Lists you're actively working through, one "next film" each. A film that
-	// is next in two lists shows once, under the list touched most recently.
+	// Lists you're working through, one "next film" each. Only lists where
+	// "next" means something: pinned ones always, ranked (numbered) ones once
+	// you've watched from them recently. A big unordered list you overlap with
+	// by chance stays on the Lists page. A film that is next in two lists
+	// shows once, under the list touched most recently.
 	const activeLists = lists.filter(
 		(l) =>
 			l.next &&
-			l.watched > 0 &&
-			l.lastWatchedAt &&
-			l.lastWatchedAt >= activeSince,
+			(l.pinned ||
+				(l.ranked &&
+					l.watched > 0 &&
+					l.lastWatchedAt &&
+					l.lastWatchedAt >= activeSince)),
 	);
 	const nextIds = activeLists
 		.map((l) => l.next?.tmdbId)
@@ -146,11 +151,8 @@ export async function getHome() {
 					f.providers
 						.filter((p) => config.services.includes(p.toLowerCase()))
 						.join(", ") || f.providers[0],
-				detail: [
-					f.year,
-					f.runtime ? `${f.runtime} min` : null,
-					"On your watchlist",
-				]
+				// Every film here is from the watchlist (the section says so).
+				detail: [f.year, f.runtime ? `${f.runtime} min` : null]
 					.filter(Boolean)
 					.join(" · "),
 				poster: f.poster,
@@ -208,11 +210,7 @@ function localWatchlist(
 				key: `drive-${r.tmdb_id}`,
 				title: r.name,
 				meta: `On ${(drives.get(r.tmdb_id) ?? []).join(", ")}`,
-				detail: [
-					r.year,
-					m?.runtime ? `${m.runtime} min` : null,
-					"On your watchlist",
-				]
+				detail: [r.year, m?.runtime ? `${m.runtime} min` : null]
 					.filter(Boolean)
 					.join(" · "),
 				poster: posterUrl(m?.poster ?? null),

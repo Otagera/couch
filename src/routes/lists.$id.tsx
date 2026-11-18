@@ -3,7 +3,7 @@ import { DrawablyButton } from "drawably/react";
 import { useState } from "react";
 import { Poster } from "../components/Poster.tsx";
 import { relativeTime } from "../lib/format.ts";
-import { getListDetail, reloadList } from "../server/fns.ts";
+import { getListDetail, reloadList, setListPinned } from "../server/fns.ts";
 
 export const Route = createFileRoute("/lists/$id")({
 	component: ListPage,
@@ -36,6 +36,12 @@ function ListPage() {
 		setState(res.ok ? "success" : "error");
 		await router.invalidate();
 		setTimeout(() => setState("idle"), 2000);
+	}
+
+	async function togglePinned() {
+		if (!list) return;
+		await setListPinned({ data: { id: list.id, pinned: !list.pinned } });
+		await router.invalidate();
 	}
 
 	const nextPos = list.next?.position;
@@ -94,6 +100,19 @@ function ListPage() {
 						/>
 						Show watched
 					</label>
+					<button
+						type="button"
+						onClick={togglePinned}
+						className={`btn px-3 py-1.5 text-[13px] ${list.pinned ? "btn-accent" : ""}`}
+						aria-pressed={list.pinned}
+						title={
+							list.ranked
+								? "Numbered list: its next film shows in Up next while you watch from it. Pin to keep it there regardless."
+								: "Show this list's next film in Up next"
+						}
+					>
+						{list.pinned ? "Working through ✓" : "Working through"}
+					</button>
 					<DrawablyButton
 						seed={701}
 						state={state}

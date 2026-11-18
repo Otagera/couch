@@ -205,4 +205,16 @@ export const migrations: Array<{ name: string; sql: string }> = [
 		);
 		`,
 	},
+	{
+		name: "006_list_order",
+		sql: `
+		-- ranked: Letterboxd numbers the list (a watch order), so "next" means
+		-- something. pinned: you said you're working through it anyway.
+		-- Only these feed Up next. fetched_at is cleared so the next sync
+		-- re-reads every list once and learns which are ranked.
+		ALTER TABLE list ADD COLUMN ranked INTEGER NOT NULL DEFAULT 0;
+		ALTER TABLE list ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0;
+		UPDATE list SET fetched_at = NULL;
+		`,
+	},
 ];

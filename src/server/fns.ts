@@ -24,6 +24,7 @@ import {
 	followList,
 	listItems,
 	listProgress,
+	pinList,
 	refreshList,
 	unfollowList,
 } from "./lists.ts";
@@ -229,6 +230,16 @@ export const reloadList = createServerFn({ method: "POST" })
 	.handler(({ data }) =>
 		guarded("LIST_REFRESH_FAILED", () => refreshList(data.id)),
 	);
+
+export const setListPinned = createServerFn({ method: "POST" })
+	.validator((d: { id: number; pinned: boolean }) => ({
+		id: Number(d?.id),
+		pinned: Boolean(d?.pinned),
+	}))
+	.handler(async ({ data }) => {
+		pinList(data.id, data.pinned);
+		return { ok: true };
+	});
 
 export const removeList = createServerFn({ method: "POST" })
 	.validator((d: { id: number }) => ({ id: Number(d?.id) }))

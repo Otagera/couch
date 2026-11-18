@@ -169,7 +169,12 @@ function GenerateButton({
 				disabled={missing.length > 0}
 				title="One OpenRouter call, well under a cent"
 			>
-				{label ? `New ${kind === "tv" ? "TV" : "film"} picks` : "New picks"}
+				{/* In a span: drawably prepends its sketch SVG into the button, and
+				    a bare string child that changes (switching tabs) makes React
+				    reset the button's textContent, wiping the sketch. */}
+				<span>
+					{label ? `New ${kind === "tv" ? "TV" : "film"} picks` : "New picks"}
+				</span>
 			</DrawablyButton>
 			{state === "loading" && (
 				<span className="mt-1 text-[11px]" style={{ color: "var(--text-3)" }}>
@@ -220,9 +225,15 @@ function PickCard({ pick, showKind }: { pick: Pick; showKind: boolean }) {
 			</a>
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-					<span className="tnum text-[12px]" style={{ color: "var(--text-3)" }}>
-						{String(pick.rank).padStart(2, "0")}
-					</span>
+					{/* Ranks are per kind; in "All" TV 1 and Film 1 would both read 01. */}
+					{!showKind && (
+						<span
+							className="tnum text-[12px]"
+							style={{ color: "var(--text-3)" }}
+						>
+							{String(pick.rank).padStart(2, "0")}
+						</span>
+					)}
 					<a
 						href={tmdbUrl}
 						target="_blank"
